@@ -11,9 +11,12 @@ import { setupLobbyHandlers } from './handlers/LobbyHandler';
 import { setupRoomHandlers } from './handlers/RoomHandler';
 import { setupMatchingHandlers } from './handlers/MatchingHandler';
 import { playerService } from './services/PlayerService';
+import redis from './utils/redis'
 
 import gameController from './controller/game'
 import oauthController from './controller/oauth'
+import config from './config';
+import { userService } from './services/UserService';
 
 const app: Express = express();
 const server = http.createServer(app);
@@ -51,13 +54,6 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-app.get('/api/stats', (req, res) => {
-  res.json({
-    timestamp: Date.now(),
-    players: playerService.getPlayerStats()
-  });
-});
-
 app.use('/api/games', gameController)
 app.use('/api/oauth', oauthController)
 
@@ -82,6 +78,16 @@ io.on('connection', (socket: AuthSocket) => {
   // 加入玩家专属的 Socket.io 房间
   socket.join(user_id);
 
+  const key = config.prefix + 'stats:users'
+  redis
+    .ttl(key)
+    .then(async (ttl) => {
+      if (ttl === -2) {
+        await userService.getStats()
+      } else {
+        await redis.pipeline().hincrby(key, 'total', 1).expire(key, config.expires).exec()
+      }
+    })
   // 广播用户上线
   io.emit('lobby:user-online', {
     user_id,
@@ -107,6 +113,16 @@ io.on('connection', (socket: AuthSocket) => {
     // 更新玩家状态
     // playerService.updatePlayerStatus(user_id, 'online'); // 实际应该设置为离线，但这里简化处理
 
+    const key = config.prefix + 'stats:users'
+    redis
+      .ttl(key)
+      .then(async (ttl) => {
+        if (ttl === -2) {
+          await userService.getStats()
+        } else {
+          await redis.pipeline().hincrby(key, 'total', -1).expire(key, config.expires).exec()
+        }
+      })
     // 广播玩家离线
     io.emit('lobby:user-offline', {
       user_id,

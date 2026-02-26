@@ -8,6 +8,7 @@ import { roomService } from '../services/RoomService';
 import { playerService } from '../services/PlayerService';
 import type { AuthSocket } from '../middleware/auth';
 import { userService } from '../services/UserService';
+import { IPlayer } from '../types';
 
 export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: string) {
   const isLoggedIn = socket.isLoggedIn;
@@ -17,7 +18,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
    * 获取游戏列表
    */
   socket.on('lobby:get-games', async (callback: (games: any[]) => void) => {
-    const games = await gameService.getAllGames();
+    const games = await gameService.getAllGames(true);
     callback(games);
   });
 
@@ -26,7 +27,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
    */
   socket.on('lobby:get-rooms', async (data: { gameId: string }, callback: (rooms: any[]) => void) => {
     const { gameId } = data;
-    const rooms = (await roomService.getRoomsByGameId(gameId)).map(room => roomService.getRoomInfo(room._id));
+    const rooms = await roomService.getRoomsByGameId(gameId);
 
     callback(rooms);
   });
@@ -46,7 +47,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
       }
 
       const { gameId, roomName, isPrivate, password } = data;
-      const player = await playerService.getPlayerById(user_id);
+      const player = await playerService.getOrCreatePlayer(user_id, gameId);
 
       if (!player) {
         callback(false, undefined, '玩家不存在');
@@ -79,7 +80,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
           }
         });
 
-        roomService.joinRoom(room._id, player);
+        await roomService.joinRoom(room._id, player);
         socket.join(`room:${room._id}`);
         socket.join(`game:${gameId}`);
 
@@ -94,6 +95,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
         callback(true, room._id);
         console.log(`✨ 房间创建: ${room._id} (玩家: ${player.user_id})`);
       } catch (error) {
+        console.log(error)
         callback(false, undefined, '创建房间失败');
       }
     }
@@ -114,14 +116,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
       }
 
       const { roomId, password } = data;
-      const player = await playerService.getPlayerById(user_id);
       const room = await roomService.getRoomById(roomId);
-
-      if (!player) {
-        callback(false, '玩家不存在');
-        return;
-      }
-
       if (!room) {
         callback(false, '房间不存在');
         return;
@@ -136,6 +131,18 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
       // 检查房间状态
       if (room.status === 'playing' || room.status === 'loading') {
         callback(false, '游戏已开始，无法加入');
+        return;
+      }
+
+      let player: IPlayer | null = null;
+      try {
+        player = await playerService.getOrCreatePlayer(user_id, room.gameId);
+      } catch (err) {
+        console.log('获取用户错误', err.message)
+      }
+
+      if (!player) {
+        callback(false, '玩家不存在');
         return;
       }
 
@@ -248,9 +255,9 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
   /**
    * 获取排行榜
    */
-  socket.on('lobby:get-leaderboard', (data: { limit?: number }, callback: (leaderboard: any[]) => void) => {
+  socket.on('lobby:get-leaderboard', async (data: { limit?: number }, callback: (leaderboard: any[]) => void) => {
     const limit = data.limit || 10;
-    const leaderboard = playerService.getLeaderboard(limit).map(player => ({
+    const leaderboard = (await playerService.getLeaderboard(limit)).map(player => ({
       rank: 0,
       id: player._id,
       name: player.user_name,
@@ -270,11 +277,15 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
    * 获取大厅统计信息
    */
   socket.on('lobby:get-stats', async (callback: (stats: any) => void) => {
-    const games = await gameService.getGameStats();
+    const games = await gameService.getStats();
+    const rooms = await roomService.getStats();
+    const users = await userService.getStats();
+    const players = await playerService.getStats()
     const stats = {
       games,
-      rooms: roomService.getRoomStats(),
-      players: playerService.getPlayerStats()
+      rooms,
+      users,
+      players
     };
     callback(stats);
   });

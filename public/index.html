@@ -402,7 +402,7 @@
 
     .lobby-content {
       display: grid;
-      grid-template-columns: 2fr 2fr 1fr;
+      grid-template-columns: 2fr 2fr 2fr;
       gap: 20px;
       flex: 1;
     }
@@ -1336,7 +1336,7 @@
 
         <!-- 统计信息 -->
         <div class="panel" style="margin-top: 20px;">
-          <h2>📊 服务���统计</h2>
+          <h2>📊 服务信息统计</h2>
           <div id="stats-container" class="stats-grid">
             <div class="loading">
               <div class="spinner"></div>
@@ -1500,7 +1500,7 @@
           user_id: state.user_id,
           isGuest: state.isGuest,
           isLoggedIn: state.isLoggedIn
-        }
+        },
       });
 
       state.socket = socket;
@@ -1732,10 +1732,6 @@
     // ========== 大厅功能 ==========
     function loadAllLobbyData() {
       loadGames();
-      loadPublicData();
-      if (!state.user) {
-        loadUserInfo();
-      }
     }
 
     function loadPublicData() {
@@ -1748,7 +1744,6 @@
 
       state.socket.emit('lobby:get-user-info', (userInfo) => {
         if (!userInfo) return;
-        console.log(userInfo, 'user')
         state.user = userInfo;
         document.getElementById('user-name').textContent = userInfo.name;
         document.getElementById('navbar-player-name').textContent = userInfo.name;
@@ -1780,8 +1775,8 @@
             <div class="game-name">${game.icon} ${game.name}</div>
             <div class="game-desc">${game.desc}</div>
             <div class="game-stats">
-              <span>🏠 ${game.roomCount} 房间</span>
-              <span>👥 ${game.totalPlayers} 人</span>
+              <span>🏠 ${game.rooms} 房间</span>
+              <span>👥 ${game.players} 人</span>
             </div>
           </div>
         `).join('');
@@ -1799,6 +1794,7 @@
       if (!state.socket) return;
 
       state.socket.emit('lobby:get-rooms', { gameId }, (rooms) => {
+        console.log(rooms)
         const container = document.getElementById('rooms-container');
         if (!rooms || rooms.length === 0) {
           container.innerHTML = '<div class="empty-state">📭 暂无房间</div>';
@@ -1806,15 +1802,15 @@
         }
 
         container.innerHTML = rooms.map(room => {
-          const isFull = room.playerCount >= room.maxPlayers;
+          const isFull = room.playerCount >= room.numbers.max;
           const isPlaying = room.status === 'playing' || room.status === 'loading';
           const canJoin = !isFull && !isPlaying;
           const isPrivate = room.isPrivate;
-          const progressPercent = (room.playerCount / room.maxPlayers) * 100;
+          const progressPercent = (room.players.length / room.numbers.max) * 100;
 
           return `
             <div class="room-card ${isFull ? 'full' : ''} ${isPlaying ? 'playing' : ''}" 
-                 onclick="${canJoin ? `handleRoomClick('${room.id}', ${isPrivate})` : ''}">
+                 onclick="${canJoin ? `handleRoomClick('${room._id}', ${isPrivate})` : ''}">
               <div class="room-header">
                 <span class="room-name">
                   ${isPrivate ? '<span class="room-lock-icon">🔒</span>' : ''}
@@ -1825,14 +1821,14 @@
                 </span>
               </div>
               <div class="room-info">
-                <span>🎮 ${room.playerCount}/${room.maxPlayers} 人</span>
-                <span>👨 房主: ${room.players[0]?.name || '未知'}</span>
+                <span>🎮 ${room.players.length}/${room.numbers.max} 人</span>
+                <span>👨 房主: ${room.players[0]?.user_name || '未知'}</span>
               </div>
               <div class="room-progress">
                 <div class="room-progress-bar">
                   <div class="room-progress-fill" style="width: ${progressPercent}%"></div>
                 </div>
-                <div class="room-progress-text">${room.playerCount}/${room.maxPlayers}</div>
+                <div class="room-progress-text">${room.players.length}/${room.numbers.max}</div>
               </div>
             </div>
           `;
@@ -1979,31 +1975,24 @@
       if (!state.socket) return;
 
       state.socket.emit('lobby:get-stats', (stats) => {
+        console.log(stats)
         const container = document.getElementById('stats-container');
         container.innerHTML = `
           <div class="stat-card">
             <div class="stat-label">总游戏数</div>
-            <div class="stat-value">${stats.games.totalGames}</div>
+            <div class="stat-value">${stats.games.total}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">在线用户</div>
+            <div class="stat-value">${stats.users.total}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">游戏人数</div>
+            <div class="stat-value">${stats.players.total}</div>
           </div>
           <div class="stat-card">
             <div class="stat-label">活跃房间</div>
-            <div class="stat-value">${stats.rooms.totalRooms}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">在线玩家</div>
-            <div class="stat-value">${stats.players.onlinePlayers}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">游戏中</div>
-            <div class="stat-value">${stats.players.inGamePlayers}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">房间人数</div>
-            <div class="stat-value">${stats.rooms.totalPlayers}</div>
-          </div>
-          <div class="stat-card">
-            <div class="stat-label">等待房间</div>
-            <div class="stat-value">${stats.rooms.waitingRooms}</div>
+            <div class="stat-value">${stats.rooms.active}</div>
           </div>
         `;
       });
@@ -2043,7 +2032,7 @@
     function updateRoomPlayers() {
       state.socket.emit('lobby:get-room-info', { roomId: state.currentRoomId }, (roomInfo) => {
         if (!roomInfo) return;
-
+        console.log(roomInfo)
         const container = document.getElementById('room-players-list');
         container.innerHTML = roomInfo.players.map(player => {
           const isCurrentUser = player.user_id === state.user?._id;

@@ -6,15 +6,32 @@
 import { v7 } from 'uuid';
 import type { IGame } from '../types/index';
 import { MGame, MRoom } from '../models'
-import { omit } from 'lodash';
+import { isEmpty, omit } from 'lodash';
+import redis from '../utils/redis'
+import config from '../config';
 
 export class GameService {
 
   /**
    * 获取所有游戏
    */
-  async getAllGames(): Promise<IGame[]> {
-    return MGame.find().lean(true)
+  async getAllGames(stat: boolean): Promise<IGame[]> {
+    const games = await MGame.find().lean(true)
+    if (stat) {
+      const list = await MRoom.aggregate([{ $group: { _id: '$gameId', rooms: { $sum: 1 }, players: { $sum: { $size: '$players' } } } }])
+      console.log(list)
+      games.forEach(game => {
+        const detail = list.find(v => v._id === game._id);
+        if (detail) {
+          game.rooms = detail.rooms;
+          game.players = detail.players;
+        } else {
+          game.rooms = 0;
+          game.players = 0;
+        }
+      })
+    }
+    return games;
   }
 
   /**
@@ -54,13 +71,17 @@ export class GameService {
   /**
    * 获取游戏统计
    */
-  async getGameStats() {
-    const totalGames = await MGame.countDocuments();
-    const totalRooms = await MRoom.countDocuments();
-    const totalPlayers = (await MRoom.aggregate([{ $group: { _id: null, count: { $sum: { $size: '$players' } } } }]))[0]?.count || 0;
-    return {
-      totalGames, totalRooms, totalPlayers,
-    };
+  async getStats() {
+    const key = config.prefix + 'stats:games'
+    let stats: { [key: string]: string | number } = await redis.hgetall(key)
+    if (isEmpty(stats)) {
+      const total = await MGame.countDocuments();
+      stats = {
+        total,
+      };
+      await redis.pipeline().hmset(key, stats).expire(key, config.expires).exec()
+    }
+    return stats;
   }
 }
 

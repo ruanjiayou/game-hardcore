@@ -3,27 +3,24 @@
  */
 
 import type { Socket } from 'socket.io';
-import { playerService } from '../services/PlayerService';
+import ioredis from 'ioredis'
+import { userService } from '../services/UserService';
+import redis from '../utils/redis'
+import { oauthService } from '../services/OAuthService';
 
 export interface AuthSocket extends Socket {
   user_id?: string;
   isLoggedIn?: boolean;
   isGuest?: boolean;
+  redis?: ioredis
 }
-
-// 模拟的用户数据库（实际应使用真实数据库）
-const users = new Map<string, { username: string; password: string }>([
-  ['admin', { username: 'admin', password: 'admin123' }],
-  ['user1', { username: 'user1', password: 'password1' }],
-  ['user2', { username: 'user2', password: 'password2' }]
-]);
 
 /**
  * 验证用户名和密码
  */
 export function validateCredentials(username: string, password: string): boolean {
-  const user = users.get(username);
-  return user ? user.password === password : false;
+  // TODO: verify
+  return false;
 }
 
 /**
@@ -39,14 +36,17 @@ export async function authMiddleware(socket: AuthSocket, next: (err?: Error) => 
   }
 
   // 获取或创建玩家
-  const player = await playerService.getOrCreatePlayer(user_id);
-
+  const user = await userService.getInfoById(user_id);
+  if (!user) {
+    return next(new Error('验证失败'))
+  }
   socket.user_id = user_id;
   socket.isLoggedIn = isLoggedIn;
   socket.isGuest = isGuest;
+  socket.redis = redis
 
   console.log(
-    `🔐 玩家认证成功: ${player.user_name} (${player._id}) | 状态: ${isLoggedIn ? '登陆' : '游客'}`
+    `🔐 玩家认证成功: ${user.name} (${user._id}) | 状态: ${isLoggedIn ? '登陆' : '游客'}`
   );
 
   next();

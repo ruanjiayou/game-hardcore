@@ -19,7 +19,7 @@ export const MRoom = mongoose.model<IRoom>('rooms', new mongoose.Schema({
   _id: String,
   gameId: String,
   name: String,
-  status: Number,
+  status: String,
   owner_id: String,
   players: [{ _id: String, name: String, level: Number, user_id: String }],
   numbers: { min: Number, max: Number },

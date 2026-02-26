@@ -13,6 +13,8 @@ export interface IGame {
   status: number;
   createdAt: number;
   updatedAt: number;
+  rooms?: number;
+  players?: number;
 }
 
 // ========== 房间相关 ==========
@@ -23,7 +25,7 @@ export interface IRoom {
   _id: string;
   gameId: string;
   name: string;
-  status: RoomStatus;
+  status: string;
   owner_id: string;
   players: IPlayer[];
   numbers: { min: number, max: number };

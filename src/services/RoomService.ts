@@ -5,7 +5,9 @@
 import { v7 } from 'uuid';
 import type { IRoom, IPlayer, RoomStatus } from '../types/index';
 import { MRoom } from '../models'
-import { sumBy } from 'lodash';
+import { isEmpty, sumBy } from 'lodash';
+import redis from '../utils/redis'
+import config from '../config';
 
 export class RoomService {
 
@@ -224,20 +226,20 @@ export class RoomService {
   /**
    * 获取房间统计
    */
-  async getRoomStats() {
-    const summary = await MRoom.aggregate([{ $group: { _id: '$status', total: { $sum: 1 } } }]);
-    const waitingRooms = summary.find(v => v._id === 'waiting')?.total || 0;
-    const playingRooms = summary.find(v => v._id === 'playing')?.total || 0;
-    const finishedRooms = summary.find(v => v._id === 'finished')?.total || 0;
-
-    const result = await MRoom.aggregate([{ $group: { _id: null, totalPlayers: { $sum: { $size: "$players" } } } }
-    ])
-    return {
-      totalRooms: sumBy(summary, 'total') - finishedRooms,
-      waitingRooms,
-      playingRooms,
-      totalPlayers: result[0]?.totalPlayers || 0,
-    };
+  async getStats() {
+    const key = config.prefix + 'stats:room'
+    let stats: { [key: string]: string | number } = await redis.hgetall(key)
+    if (isEmpty(stats)) {
+      const summary = await MRoom.aggregate([{ $group: { _id: '$status', total: { $sum: 1 } } }]);
+      const waits = summary.find(v => v._id === 'waiting')?.total || 0;
+      const finishedRooms = summary.find(v => v._id === 'finished')?.total || 0;
+      stats = {
+        active: sumBy(summary, 'total') - finishedRooms,
+        waits,
+      }
+      await redis.pipeline().hmset(key, stats).expire(key, config.expires).exec()
+    }
+    return stats;
   }
 }
 
