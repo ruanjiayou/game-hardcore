@@ -1501,6 +1501,11 @@
           isGuest: state.isGuest,
           isLoggedIn: state.isLoggedIn
         },
+        reconnection: true,          // 是否自动重连
+        reconnectionAttempts: 5,     // 最大重试次数
+        reconnectionDelay: 1000,     // 初始重试间隔
+        reconnectionDelayMax: 5000,  // 最大间隔
+        timeout: 20000               // 连接超时
       });
 
       state.socket = socket;
