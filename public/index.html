@@ -1,0 +1,2222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 游戏大厅</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    :root {
+      --primary: #667eea;
+      --secondary: #764ba2;
+      --success: #4ade80;
+      --danger: #f87171;
+      --warning: #fbbf24;
+      --dark: #333;
+      --light: #f9f9f9;
+      --border: #e0e0e0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+      min-height: 100vh;
+      color: var(--dark);
+    }
+
+    /* ========== 全局样式 ========== */
+    .app {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .page {
+      display: none;
+      flex: 1;
+      animation: fadeIn 0.3s ease-in-out;
+    }
+
+    .page.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ========== 导航栏 ========== */
+    .navbar {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 15px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: white;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .navbar-brand {
+      font-size: 20px;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .navbar-left {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    .navbar-right {
+      display: flex;
+      gap: 15px;
+      align-items: center;
+    }
+
+    .navbar-item {
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 5px;
+      transition: all 0.3s;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .navbar-item:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .navbar-item.active {
+      background: rgba(255, 255, 255, 0.3);
+    }
+
+    .user-menu {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      position: relative;
+    }
+
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      padding: 8px 12px;
+      border-radius: 5px;
+      background: rgba(255, 255, 255, 0.1);
+      transition: all 0.3s;
+    }
+
+    .user-info:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
+    .user-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+    }
+
+    .user-name {
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .dropdown-menu {
+      position: absolute;
+      top: 60px;
+      right: 20px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      z-index: 1000;
+      display: none;
+      min-width: 200px;
+      overflow: hidden;
+    }
+
+    .dropdown-menu.show {
+      display: block;
+    }
+
+    .dropdown-item {
+      padding: 12px 16px;
+      color: var(--dark);
+      cursor: pointer;
+      transition: all 0.3s;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .dropdown-item:last-child {
+      border-bottom: none;
+    }
+
+    .dropdown-item:hover {
+      background: var(--light);
+    }
+
+    .dropdown-item.danger {
+      color: var(--danger);
+    }
+
+    .login-btn {
+      background: rgba(255, 255, 255, 0.3);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      padding: 8px 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    .login-btn:hover {
+      background: rgba(255, 255, 255, 0.5);
+      border-color: white;
+    }
+
+    /* ========== 容器 ========== */
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+    }
+
+    /* ========== 登陆页面 ========== */
+    #login-page {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-container {
+      background: white;
+      border-radius: 10px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      max-width: 400px;
+      width: 100%;
+    }
+
+    .login-title {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 10px;
+      text-align: center;
+    }
+
+    .login-subtitle {
+      color: #666;
+      text-align: center;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+
+    .form-group {
+      margin-bottom: 15px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .form-group input {
+      width: 100%;
+      padding: 12px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 14px;
+      transition: all 0.3s;
+    }
+
+    .form-group input:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .login-btn-primary {
+      width: 100%;
+      padding: 12px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    .login-btn-primary:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    .divider {
+      text-align: center;
+      margin: 20px 0;
+      color: #999;
+      font-size: 13px;
+    }
+
+    .guest-btn {
+      width: 100%;
+      padding: 12px;
+      background: transparent;
+      color: var(--primary);
+      border: 1px solid var(--primary);
+      border-radius: 5px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .guest-btn:hover {
+      background: var(--primary);
+      color: white;
+    }
+
+    /* ========== 大厅页面 ========== */
+    #lobby-page {
+      flex-direction: column;
+    }
+
+    .lobby-header {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .lobby-header.guest {
+      text-align: center;
+      padding: 30px;
+    }
+
+    .lobby-header.guest h2 {
+      color: var(--primary);
+      margin-bottom: 10px;
+    }
+
+    .lobby-header.guest p {
+      color: #666;
+      margin-bottom: 15px;
+    }
+
+    .player-card {
+      display: flex;
+      gap: 20px;
+      align-items: center;
+    }
+
+    #user-avatar {
+      font-size: 48px;
+      width: 80px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f0f0;
+      border-radius: 10px;
+    }
+
+    .player-details {
+      flex: 1;
+    }
+
+    .user-name {
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    #navbar-player-name {
+      color: #fff;
+    }
+
+    .player-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #666;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stat-label {
+      color: #999;
+      text-transform: uppercase;
+      font-size: 11px;
+      margin-bottom: 3px;
+    }
+
+    .stat-value {
+      font-weight: 700;
+      color: var(--dark);
+    }
+
+    .lobby-content {
+      display: grid;
+      grid-template-columns: 2fr 2fr 1fr;
+      gap: 20px;
+      flex: 1;
+    }
+
+    .panel {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .panel h2 {
+      margin-bottom: 15px;
+      color: var(--dark);
+      font-size: 18px;
+    }
+
+    .games-grid {
+      display: grid;
+      gap: 10px;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      max-height: 600px;
+    }
+
+    .game-card {
+      padding: 15px;
+      background: var(--light);
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .game-card:hover {
+      background: #e8e8e8;
+      transform: translateX(5px);
+    }
+
+    .game-card.active {
+      background: #e8e4f3;
+      border-left-color: var(--secondary);
+    }
+
+    .game-name {
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+
+    .game-desc {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .game-stats {
+      display: flex;
+      gap: 15px;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .rooms-grid {
+      display: grid;
+      gap: 10px;
+      flex: 1;
+      overflow-y: auto;
+      max-height: 600px;
+    }
+
+    .room-card {
+      padding: 12px;
+      background: var(--light);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .room-card:hover:not(.room-card.full):not(.room-card.playing) {
+      border-color: var(--primary);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    .room-card.full,
+    .room-card.playing {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .room-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .room-name {
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .room-lock-icon {
+      font-size: 14px;
+    }
+
+    .room-status {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 4px;
+      background: var(--success);
+      color: white;
+    }
+
+    .room-status.playing {
+      background: var(--warning);
+    }
+
+    .room-status.full {
+      background: var(--danger);
+    }
+
+    .room-info {
+      display: flex;
+      gap: 15px;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .room-progress {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .room-progress-bar {
+      flex: 1;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .room-progress-fill {
+      height: 100%;
+      background: var(--primary);
+      transition: width 0.3s;
+    }
+
+    .room-progress-text {
+      font-size: 11px;
+      color: #999;
+      white-space: nowrap;
+    }
+
+    /* ========== 排行榜 ========== */
+    .leaderboard {
+      flex: 1;
+      overflow-y: auto;
+      max-height: 600px;
+    }
+
+    .leaderboard-item {
+      display: grid;
+      grid-template-columns: 50px 1fr 80px;
+      gap: 12px;
+      padding: 12px;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+
+    .leaderboard-item:hover {
+      background: var(--light);
+    }
+
+    .rank {
+      font-weight: 700;
+      color: var(--primary);
+      text-align: center;
+      font-size: 16px;
+    }
+
+    .rank.top1 {
+      color: #ffd700;
+      font-size: 18px;
+    }
+
+    .rank.top2 {
+      color: #c0c0c0;
+    }
+
+    .rank.top3 {
+      color: #cd7f32;
+    }
+
+    .player-name-rank {
+      color: var(--dark);
+      font-weight: 600;
+    }
+
+    .rating {
+      color: #999;
+      text-align: right;
+      font-weight: 600;
+    }
+
+    /* ========== 统计信息 ========== */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .stat-card {
+      padding: 15px;
+      background: var(--light);
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+    }
+
+    .stat-label {
+      color: #666;
+      font-size: 12px;
+      text-transform: uppercase;
+      margin-bottom: 5px;
+    }
+
+    .stat-value {
+      color: var(--dark);
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    /* ========== 房间页面 ========== */
+    #room-page {
+      flex-direction: column;
+    }
+
+    .room-header-section {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .room-title {
+      font-size: 28px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+    }
+
+    .room-title-info {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .room-title-name {
+      font-size: 28px;
+      font-weight: 700;
+    }
+
+    .room-title-status {
+      font-size: 14px;
+      color: #666;
+      display: flex;
+      gap: 15px;
+    }
+
+    .room-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .room-body {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      flex: 1;
+    }
+
+    .players-section,
+    .chat-section,
+    .settings-section {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .players-list {
+      display: grid;
+      gap: 10px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .player-item {
+      padding: 12px;
+      background: var(--light);
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+
+    .player-item-avatar {
+      font-size: 32px;
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f0f0f0;
+      border-radius: 8px;
+    }
+
+    .player-item-info {
+      flex: 1;
+    }
+
+    .player-item-name {
+      font-weight: 700;
+      margin-bottom: 3px;
+    }
+
+    .player-item-level {
+      font-size: 12px;
+      color: #666;
+    }
+
+    .player-item-owner {
+      background: var(--warning);
+      color: white;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .player-item-kick {
+      cursor: pointer;
+      color: var(--danger);
+      font-size: 18px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .player-item:hover .player-item-kick {
+      opacity: 1;
+    }
+
+    .chat-box {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+    }
+
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      padding: 10px;
+      background: var(--light);
+      border-radius: 8px;
+    }
+
+    .chat-message {
+      margin-bottom: 8px;
+      padding: 8px;
+      background: white;
+      border-radius: 5px;
+      font-size: 13px;
+    }
+
+    .chat-message.sent {
+      background: #e8e4f3;
+      text-align: right;
+    }
+
+    .chat-input {
+      display: flex;
+      gap: 10px;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    /* ========== 游戏页面 ========== */
+    #game-page {
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .game-container {
+      width: 100%;
+      max-width: 1000px;
+      height: 600px;
+      background: #000;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      position: relative;
+    }
+
+    .game-canvas {
+      width: 100%;
+      height: 100%;
+    }
+
+    .game-hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      color: white;
+      font-weight: 700;
+    }
+
+    .game-info {
+      display: flex;
+      gap: 20px;
+    }
+
+    .game-timer {
+      font-size: 24px;
+      color: var(--warning);
+    }
+
+    .game-score {
+      font-size: 18px;
+    }
+
+    /* ========== 按钮 ========== */
+    button {
+      padding: 10px 20px;
+      background: var(--primary);
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 700;
+      transition: all 0.3s;
+      font-size: 14px;
+    }
+
+    button:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button.secondary {
+      background: #999;
+    }
+
+    button.secondary:hover {
+      background: #777;
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button.danger:hover {
+      background: #dc2626;
+    }
+
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    /* ========== 模态框 ========== */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 2000;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-content {
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      max-width: 500px;
+      width: 90%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-header {
+      font-size: 24px;
+      font-weight: 700;
+      margin-bottom: 20px;
+    }
+
+    .modal-field {
+      margin-bottom: 15px;
+    }
+
+    .modal-field label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .modal-field input,
+    .modal-field select {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-size: 14px;
+    }
+
+    .modal-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+      justify-content: flex-end;
+    }
+
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin: 15px 0;
+    }
+
+    .checkbox-group input[type="checkbox"] {
+      width: auto;
+      cursor: pointer;
+    }
+
+    .checkbox-group label {
+      margin: 0;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    /* ========== 通知 ========== */
+    .notification {
+      position: fixed;
+      top: 80px;
+      right: 20px;
+      background: white;
+      padding: 15px 20px;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      z-index: 3000;
+      animation: slideIn 0.3s ease-out;
+      max-width: 400px;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateX(400px);
+        opacity: 0;
+      }
+
+      to {
+        transform: translateX(0);
+        opacity: 1;
+      }
+    }
+
+    .notification.success {
+      border-left: 4px solid var(--success);
+    }
+
+    .notification.error {
+      border-left: 4px solid var(--danger);
+    }
+
+    .notification.info {
+      border-left: 4px solid var(--primary);
+    }
+
+    /* ========== 连接状态 ========== */
+    .connection-status {
+      bottom: 20px;
+      right: 20px;
+      padding: 12px 16px;
+      border-radius: 20px;
+      background: white;
+      color: black;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      font-size: 14px;
+      z-index: 1000;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: var(--danger);
+    }
+
+    .connection-status.connected .status-dot {
+      background: var(--success);
+    }
+
+    /* ========== 响应式 ========== */
+    @media (max-width: 1200px) {
+      .lobby-content {
+        grid-template-columns: 1fr 1fr;
+      }
+
+      .player-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .room-body {
+        grid-template-columns: 1fr;
+      }
+
+      .lobby-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .navbar {
+        padding: 10px 15px;
+      }
+
+      .navbar-left {
+        display: none;
+      }
+
+      .container {
+        padding: 10px;
+      }
+
+      .game-container {
+        max-width: 100%;
+        height: 400px;
+      }
+
+      .login-container {
+        margin: 20px;
+      }
+    }
+
+    /* ========== 加载动画 ========== */
+    .loading {
+      text-align: center;
+      padding: 40px 20px;
+      color: #999;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 30px;
+      height: 30px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% {
+        transform: rotate(0deg);
+      }
+
+      100% {
+        transform: rotate(360deg);
+      }
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .login-required {
+      text-align: center;
+      padding: 30px;
+      background: var(--light);
+      border-radius: 8px;
+      border: 2px dashed var(--border);
+      color: #999;
+    }
+
+    .login-required h3 {
+      margin-bottom: 10px;
+      color: var(--dark);
+    }
+
+    .login-required button {
+      margin-top: 15px;
+    }
+
+    .password-modal {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      border-radius: 10px;
+      padding: 30px;
+      z-index: 2000;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      min-width: 350px;
+      display: none;
+    }
+
+    .password-modal.show {
+      display: block;
+    }
+
+    .password-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 1999;
+      display: none;
+    }
+
+    .password-modal-overlay.show {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <!-- 导航栏 -->
+    <div class="navbar">
+      <div class="navbar-brand" onclick="navigateTo('lobby')">
+        🎮 游戏大厅
+      </div>
+
+      <div class="navbar-left">
+        <div class="navbar-item active" onclick="navigateTo('lobby')">大厅</div>
+        <div class="navbar-item" id="room-nav" style="display: none;" onclick="navigateTo('room')">房间</div>
+        <div class="navbar-item" id="game-nav" style="display: none;" onclick="navigateTo('game')">游戏</div>
+      </div>
+
+      <div class="navbar-right">
+        <div class="connection-status disconnected" id="connection-status">
+          <span class="status-dot"></span>
+          <span id="connection-text">未连接</span>
+        </div>
+
+        <!-- 未登陆状态 -->
+        <div id="guest-menu" class="user-menu" style="display: flex;">
+          <button class="login-btn" onclick="navigateTo('login')">登陆</button>
+        </div>
+
+        <!-- 已登陆状态 -->
+        <div id="user-menu" class="user-menu" style="display: none;">
+          <div class="user-info" onclick="toggleUserDropdown()">
+            <div class="user-avatar" id="navbar-avatar">👤</div>
+            <div class="user-name" id="navbar-player-name">Player</div>
+          </div>
+
+          <!-- 用户下拉菜单 -->
+          <div class="dropdown-menu" id="user-dropdown">
+            <div class="dropdown-item" onclick="viewProfile()">👤 个人资料</div>
+            <div class="dropdown-item" onclick="viewStats()">📊 游戏统计</div>
+            <div class="dropdown-item" onclick="logout()" class="danger">🚪 退出登陆</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 登陆页面 -->
+    <div id="login-page" class="page">
+      <div class="login-container">
+        <div class="login-title">🎮 游戏大厅</div>
+        <div class="login-subtitle">加入游戏社区，开始你的冒险之旅</div>
+
+        <div class="form-group">
+          <label>玩家名称</label>
+          <input type="text" id="login-username" placeholder="输入你的游戏名称" onkeypress="handleLoginKeypress(event)">
+        </div>
+
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="login-password" placeholder="输入密码" onkeypress="handleLoginKeypress(event)">
+        </div>
+
+        <button class="login-btn-primary" onclick="login()">登陆</button>
+
+        <div class="divider">或</div>
+
+        <button class="guest-btn" onclick="loginAsGuest()">以游客身份继续</button>
+      </div>
+    </div>
+
+    <!-- 大厅页面 -->
+    <div id="lobby-page" class="page active">
+      <div class="container">
+        <!-- 玩家信息卡片（仅登陆用户） -->
+        <div id="user-info-section">
+          <div class="lobby-header">
+            <div class="player-card">
+              <div class="user-avatar" id="user-avatar">👤</div>
+              <div class="player-details">
+                <div class="user-name" id="user-name">加载中...</div>
+                <div class="player-stats">
+                  <div class="stat-item">
+                    <span class="stat-label">等级</span>
+                    <span class="stat-value" id="player-level">1</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">评分</span>
+                    <span class="stat-value" id="player-rating">1000</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">胜场</span>
+                    <span class="stat-value" id="player-wins">0</span>
+                  </div>
+                  <div class="stat-item">
+                    <span class="stat-label">胜率</span>
+                    <span class="stat-value" id="player-winrate">0%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 游客提示信息 -->
+        <div id="guest-info-section" style="display: none;">
+          <div class="lobby-header guest">
+            <h2>欢迎游客！</h2>
+            <p>您当前以游客身份浏览。登陆后可以创建房间、参加比赛和查看个人数据。</p>
+            <button class="login-btn-primary" style="width: auto;" onclick="navigateTo('login')">立即登陆</button>
+          </div>
+        </div>
+
+        <!-- 游戏列表和房间列表 -->
+        <div class="lobby-content">
+          <!-- 游戏列表 -->
+          <div class="panel">
+            <h2>🎯 游戏列表</h2>
+            <div id="games-container" class="games-grid">
+              <div class="loading">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 房间列表 -->
+          <div class="panel">
+            <h2>🏠 房间列表</h2>
+            <div id="room-create-section">
+              <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <input type="text" id="room-name" placeholder="房间名称"
+                  style="flex: 1; padding: 10px; border: 1px solid var(--border); border-radius: 5px;">
+                <button onclick="openCreateRoomModal()">创建房间</button>
+              </div>
+            </div>
+            <div id="room-create-login-required" style="display: none;">
+              <div class="login-required">
+                <h3>需要登陆</h3>
+                <p>创建房间需要先登陆账户</p>
+                <button onclick="navigateTo('login')">立即登陆</button>
+              </div>
+            </div>
+            <div id="rooms-container" class="rooms-grid">
+              <div class="empty-state">📭 选择游戏查看房间</div>
+            </div>
+          </div>
+
+          <!-- 排行榜和统计信息 -->
+          <div class="panel">
+            <h2>🏆 排行榜 Top 10</h2>
+            <div id="leaderboard-container" class="leaderboard">
+              <div class="loading">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 统计信息 -->
+        <div class="panel" style="margin-top: 20px;">
+          <h2>📊 服务���统计</h2>
+          <div id="stats-container" class="stats-grid">
+            <div class="loading">
+              <div class="spinner"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 房间页面 -->
+    <div id="room-page" class="page">
+      <div class="container">
+        <div class="room-header-section">
+          <div class="room-title">
+            <div class="room-title-info">
+              <div class="room-title-name" id="room-title">房间名称</div>
+              <div class="room-title-status">
+                <span id="room-player-count">0/0 人</span>
+                <span id="room-is-private" style="display: none;">🔒 私密房间</span>
+              </div>
+            </div>
+          </div>
+          <div class="room-actions">
+            <button id="room-start-btn" onclick="startGame()" style="display: none;">开始游戏</button>
+            <button class="secondary" onclick="leaveRoom()">离开房间</button>
+          </div>
+        </div>
+
+        <div class="room-body">
+          <!-- 玩家列表 -->
+          <div class="players-section">
+            <h2>👥 玩家列表</h2>
+            <div id="room-players-list" class="players-list">
+              <div class="loading">
+                <div class="spinner"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 聊天框 -->
+          <div class="chat-section">
+            <h2>💬 房间聊天</h2>
+            <div class="chat-box">
+              <div id="chat-messages" class="chat-messages"></div>
+              <div class="chat-input">
+                <input type="text" id="chat-input" placeholder="输入消息..." onkeypress="handleChatKeypress(event)">
+                <button onclick="sendMessage()" style="width: auto;">发送</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 游戏页面 -->
+    <div id="game-page" class="page">
+      <div class="container" style="display: flex; justify-content: center; align-items: center; flex: 1;">
+        <div class="game-container">
+          <canvas id="game-canvas" class="game-canvas"></canvas>
+          <div class="game-hud">
+            <div class="game-info">
+              <div class="game-timer" id="game-timer">00:00</div>
+              <div class="game-score" id="game-score">分数: 0</div>
+            </div>
+            <button class="danger" onclick="exitGame()">退出游戏</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 创建房间模态框 -->
+  <div class="modal" id="create-room-modal">
+    <div class="modal-content">
+      <div class="modal-header">创建房间</div>
+
+      <div class="modal-field">
+        <label>房间名称</label>
+        <input type="text" id="modal-room-name" placeholder="输入房间名称">
+      </div>
+
+      <div class="checkbox-group">
+        <input type="checkbox" id="modal-is-private" onchange="togglePasswordField()">
+        <label for="modal-is-private">设置密码（私密房间）</label>
+      </div>
+
+      <div class="modal-field" id="password-field" style="display: none;">
+        <label>房间密码</label>
+        <input type="password" id="modal-room-password" placeholder="输入房间密码">
+      </div>
+
+      <div class="modal-buttons">
+        <button class="secondary" onclick="closeCreateRoomModal()">取消</button>
+        <button onclick="confirmCreateRoom()">创建</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 输入密码模态框 -->
+  <div class="password-modal-overlay" id="password-overlay"></div>
+  <div class="password-modal" id="password-modal">
+    <div style="font-size: 18px; font-weight: 700; margin-bottom: 15px;">房间需要密码</div>
+    <div class="modal-field">
+      <label>请输入房间密码</label>
+      <input type="password" id="join-room-password" placeholder="输入密码" onkeypress="handlePasswordKeypress(event)">
+    </div>
+    <div class="modal-buttons">
+      <button class="secondary" onclick="cancelJoinRoom()">取消</button>
+      <button onclick="confirmJoinWithPassword()">加入</button>
+    </div>
+  </div>
+
+  <!-- 通知容器 -->
+  <div id="notification-container"></div>
+
+  <script>
+    // ========== 全局状态 ==========
+    const state = {
+      socket: null,
+      user_id: '',
+      user: null,
+      token: null,
+      playerInfo: null,
+      isLoggedIn: false,
+      isGuest: false,
+      selectedGameId: null,
+      currentRoomId: null,
+      currentGameId: null,
+      isRoomOwner: false,
+      currentPage: 'lobby',
+      gameState: {
+        score: 0,
+        time: 0,
+        running: false
+      },
+      pendingRoomId: null,
+      pendingRoomPassword: null
+    };
+
+    // ========== 初始化 ==========
+    function init() {
+      const savedSession = localStorage.getItem('gameSession');
+
+      if (savedSession) {
+        const session = JSON.parse(savedSession);
+        state.user_id = session.user_id;
+        state.isLoggedIn = session.isLoggedIn;
+        state.isGuest = session.isGuest;
+        connectSocket();
+        navigateTo('lobby');
+      } else {
+        navigateTo('login');
+      }
+    }
+
+    function connectSocket() {
+      if (state.socket) return;
+
+      const socket = io({
+        auth: {
+          user_id: state.user_id,
+          isGuest: state.isGuest,
+          isLoggedIn: state.isLoggedIn
+        }
+      });
+
+      state.socket = socket;
+
+      socket.on('connect', () => {
+        updateConnectionStatus(true);
+        console.log('✅ 已连接到服务器');
+
+        if (state.isLoggedIn) {
+          loadUserInfo();
+        }
+        loadPublicData();
+      });
+
+      socket.on('disconnect', () => {
+        updateConnectionStatus(false);
+      });
+
+      socket.on('lobby:room-created', (data) => {
+        showNotification(`✨ 新房间: ${data.roomName}`, 'info');
+        if (state.selectedGameId) {
+          loadRooms(state.selectedGameId);
+        }
+      });
+
+      socket.on('lobby:player-joined', (data) => {
+        updateRoomPlayers();
+      });
+
+      socket.on('lobby:player-left', (data) => {
+        updateRoomPlayers();
+      });
+
+      socket.on('room:message', (data) => {
+        addChatMessage(data.user_id, data.message);
+      });
+
+      socket.on('room:game-started', (data) => {
+        showNotification('🎮 游戏开始！', 'success');
+        setTimeout(() => {
+          navigateTo('game');
+          startGameSimulation();
+        }, 2000);
+      });
+
+      socket.on('matching:matched', (data) => {
+        showNotification(`✅ 匹配成功！`, 'success');
+        navigateTo('room');
+        loadRoomInfo(data.roomId);
+      });
+    }
+
+    // ========== 登陆系统 ==========
+    function handleLoginKeypress(event) {
+      if (event.key === 'Enter') {
+        login();
+      }
+    }
+
+    function login() {
+      const username = document.getElementById('login-username').value.trim();
+      const password = document.getElementById('login-password').value.trim();
+
+      if (!username || !password) {
+        showNotification('请输入用户名和密码', 'error');
+        return;
+      }
+
+      if (username.length < 2) {
+        showNotification('用户名至少2个字符', 'error');
+        return;
+      }
+
+      fetch('/api/oauth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: username, pass: password })
+      })
+        .then(resp => {
+          return resp.json()
+        })
+        .then(result => {
+          if (result.code === 0) {
+            state.user = result.data.user;
+            state.user_id = state.user._id;
+            state.token = result.data.token;
+            state.isLoggedIn = true;
+            state.isGuest = false;
+
+            localStorage.setItem('gameSession', JSON.stringify({
+              user_id: state.user_id,
+              isLoggedIn: true,
+              isGuest: false
+            }));
+
+            connectSocket();
+            navigateTo('lobby');
+            showNotification(`✅ 欢迎回来，${username}！`, 'success');
+          } else {
+            showNotification(`❌ ${result.message}！`, 'error');
+          }
+        })
+        .catch(err => {
+
+        })
+
+
+    }
+
+    function loginAsGuest() {
+      const guest_id = `Guest_${Math.floor(Math.random() * 100000)}`;
+      state.user = { _id: guest_id };
+      state.isLoggedIn = false;
+      state.isGuest = true;
+
+      localStorage.setItem('gameSession', JSON.stringify({
+        user_id: guest_id,
+        isLoggedIn: false,
+        isGuest: true
+      }));
+
+      connectSocket();
+      navigateTo('lobby');
+      showNotification(`✅ 以游客身份进入：${guest_id}`, 'info');
+    }
+
+    function logout() {
+      state.isLoggedIn = false;
+      state.isGuest = false;
+      localStorage.removeItem('gameSession');
+      state.socket?.disconnect();
+      state.socket = null;
+
+      document.getElementById('user-avatar').textContent = '-';
+      document.getElementById('navbar-avatar').textContent = '-';
+      toggleUserDropdown()
+
+      navigateTo('login');
+      showNotification('已退出登陆', 'info');
+    }
+
+    function toggleUserDropdown() {
+      const dropdown = document.getElementById('user-dropdown');
+      dropdown.classList.toggle('show');
+    }
+
+    document.addEventListener('click', (e) => {
+      const dropdown = document.getElementById('user-dropdown');
+      const userInfo = document.querySelector('.user-info');
+      if (dropdown && userInfo && !userInfo.contains(e.target) && !dropdown.contains(e.target)) {
+        dropdown.classList.remove('show');
+      }
+    });
+
+    function viewProfile() {
+      showNotification('个人资料功能开发中...', 'info');
+      document.getElementById('user-dropdown').classList.remove('show');
+    }
+
+    function viewStats() {
+      showNotification('游戏统计功能开发中...', 'info');
+      document.getElementById('user-dropdown').classList.remove('show');
+    }
+
+    // ========== 路由和页面导航 ==========
+    function navigateTo(page) {
+      if (!state.isLoggedIn && !state.isGuest && page !== 'login') {
+        showNotification('请先登陆', 'error');
+        return;
+      }
+
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.navbar-item').forEach(item => item.classList.remove('active'));
+
+      const targetPage = document.getElementById(`${page}-page`);
+      if (targetPage) {
+        targetPage.classList.add('active');
+      }
+
+      state.currentPage = page;
+
+      if (page === 'lobby') {
+        updateNavbar();
+        document.getElementById('room-nav').style.display = 'none';
+        document.getElementById('game-nav').style.display = 'none';
+        document.querySelector('.navbar-item:first-of-type').classList.add('active');
+        loadAllLobbyData();
+      } else if (page === 'room') {
+        document.getElementById('room-nav').style.display = 'block';
+        document.getElementById('game-nav').style.display = 'none';
+        const roomNavItem = document.getElementById('room-nav');
+        if (roomNavItem) roomNavItem.classList.add('active');
+        loadRoomInfo(state.currentRoomId);
+      } else if (page === 'game') {
+        document.getElementById('room-nav').style.display = 'none';
+        document.getElementById('game-nav').style.display = 'block';
+        const gameNavItem = document.getElementById('game-nav');
+        if (gameNavItem) gameNavItem.classList.add('active');
+      }
+    }
+
+    function updateNavbar() {
+      const guestMenu = document.getElementById('guest-menu');
+      const userMenu = document.getElementById('user-menu');
+      const userInfoSection = document.getElementById('user-info-section');
+      const guestInfoSection = document.getElementById('guest-info-section');
+      const roomCreateSection = document.getElementById('room-create-section');
+      const roomCreateLoginRequired = document.getElementById('room-create-login-required');
+
+      if (state.isLoggedIn) {
+        guestMenu.style.display = 'none';
+        userMenu.style.display = 'flex';
+        userInfoSection.style.display = 'block';
+        guestInfoSection.style.display = 'none';
+        roomCreateSection.style.display = 'block';
+        roomCreateLoginRequired.style.display = 'none';
+
+        document.getElementById('navbar-player-name').textContent = state.user?.name;
+      } else {
+        guestMenu.style.display = 'flex';
+        userMenu.style.display = 'none';
+        userInfoSection.style.display = 'none';
+        guestInfoSection.style.display = 'block';
+        roomCreateSection.style.display = 'none';
+        roomCreateLoginRequired.style.display = 'block';
+      }
+    }
+
+    // ========== 大厅功能 ==========
+    function loadAllLobbyData() {
+      loadGames();
+      loadPublicData();
+      if (!state.user) {
+        loadUserInfo();
+      }
+    }
+
+    function loadPublicData() {
+      loadLeaderboard();
+      loadStats();
+    }
+
+    function loadUserInfo() {
+      if (!state.isLoggedIn || !state.socket) return;
+
+      state.socket.emit('lobby:get-user-info', (userInfo) => {
+        if (!userInfo) return;
+        console.log(userInfo, 'user')
+        state.user = userInfo;
+        document.getElementById('user-name').textContent = userInfo.name;
+        document.getElementById('navbar-player-name').textContent = userInfo.name;
+        // document.getElementById('user-level').textContent = userInfo.level;
+        // document.getElementById('user-rating').textContent = userInfo.stats.rating;
+        // document.getElementById('user-wins').textContent = userInfo.stats.wins;
+        // document.getElementById('user-winrate').textContent = (userInfo.stats.winRate * 100).toFixed(1) + '%';
+
+        const avatars = ['👨', '👩', '👦', '👧', '👨‍🦱', '👩‍🦱'];
+        const avatar = avatars[userInfo._id.charCodeAt(0) % avatars.length];
+        document.getElementById('user-avatar').textContent = avatar;
+        document.getElementById('navbar-avatar').textContent = avatar;
+      });
+    }
+
+    function loadGames() {
+      if (!state.socket) return;
+
+      state.socket.emit('lobby:get-games', (games) => {
+        const container = document.getElementById('games-container');
+        if (!games || games.length === 0) {
+          container.innerHTML = '<div class="empty-state">暂无游戏</div>';
+          return;
+        }
+
+        container.innerHTML = games.map(game => `
+          <div class="game-card ${state.selectedGameId === game._id ? 'active' : ''}" 
+               onclick="selectGame('${game._id}', this)">
+            <div class="game-name">${game.icon} ${game.name}</div>
+            <div class="game-desc">${game.desc}</div>
+            <div class="game-stats">
+              <span>🏠 ${game.roomCount} 房间</span>
+              <span>👥 ${game.totalPlayers} 人</span>
+            </div>
+          </div>
+        `).join('');
+      });
+    }
+
+    function selectGame(gameId, element) {
+      state.selectedGameId = gameId;
+      document.querySelectorAll('.game-card').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+      loadRooms(gameId);
+    }
+
+    function loadRooms(gameId) {
+      if (!state.socket) return;
+
+      state.socket.emit('lobby:get-rooms', { gameId }, (rooms) => {
+        const container = document.getElementById('rooms-container');
+        if (!rooms || rooms.length === 0) {
+          container.innerHTML = '<div class="empty-state">📭 暂无房间</div>';
+          return;
+        }
+
+        container.innerHTML = rooms.map(room => {
+          const isFull = room.playerCount >= room.maxPlayers;
+          const isPlaying = room.status === 'playing' || room.status === 'loading';
+          const canJoin = !isFull && !isPlaying;
+          const isPrivate = room.isPrivate;
+          const progressPercent = (room.playerCount / room.maxPlayers) * 100;
+
+          return `
+            <div class="room-card ${isFull ? 'full' : ''} ${isPlaying ? 'playing' : ''}" 
+                 onclick="${canJoin ? `handleRoomClick('${room.id}', ${isPrivate})` : ''}">
+              <div class="room-header">
+                <span class="room-name">
+                  ${isPrivate ? '<span class="room-lock-icon">🔒</span>' : ''}
+                  ${room.name}
+                </span>
+                <span class="room-status ${room.status === 'playing' ? 'playing' : ''} ${isFull ? 'full' : ''}">
+                  ${isFull ? '👥 房满' : isPlaying ? '🎮 游戏中' : '⏳ 等待中'}
+                </span>
+              </div>
+              <div class="room-info">
+                <span>🎮 ${room.playerCount}/${room.maxPlayers} 人</span>
+                <span>👨 房主: ${room.players[0]?.name || '未知'}</span>
+              </div>
+              <div class="room-progress">
+                <div class="room-progress-bar">
+                  <div class="room-progress-fill" style="width: ${progressPercent}%"></div>
+                </div>
+                <div class="room-progress-text">${room.playerCount}/${room.maxPlayers}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      });
+    }
+
+    function handleRoomClick(roomId, isPrivate) {
+      if (!state.isLoggedIn) {
+        showNotification('加入房间需要登陆', 'error');
+        navigateTo('login');
+        return;
+      }
+
+      if (isPrivate) {
+        // 显示密码输入框
+        state.pendingRoomId = roomId;
+        showPasswordModal();
+      } else {
+        // 直接加入
+        joinRoom(roomId, '');
+      }
+    }
+
+    function showPasswordModal() {
+      document.getElementById('password-overlay').classList.add('show');
+      document.getElementById('password-modal').classList.add('show');
+      document.getElementById('join-room-password').focus();
+    }
+
+    function hidePasswordModal() {
+      document.getElementById('password-overlay').classList.remove('show');
+      document.getElementById('password-modal').classList.remove('show');
+      document.getElementById('join-room-password').value = '';
+      state.pendingRoomId = null;
+    }
+
+    function handlePasswordKeypress(event) {
+      if (event.key === 'Enter') {
+        confirmJoinWithPassword();
+      }
+    }
+
+    function confirmJoinWithPassword() {
+      const password = document.getElementById('join-room-password').value;
+      if (state.pendingRoomId) {
+        joinRoom(state.pendingRoomId, password);
+        hidePasswordModal();
+      }
+    }
+
+    function cancelJoinRoom() {
+      hidePasswordModal();
+    }
+
+    function joinRoom(roomId, password = '') {
+      state.socket.emit('lobby:join-room', { roomId, password }, (success, error) => {
+        if (success) {
+          showNotification('✅ 加入房间成功！', 'success');
+          state.currentRoomId = roomId;
+          navigateTo('room');
+        } else {
+          showNotification(`❌ ${error || '加入房间失败'}`, 'error');
+        }
+      });
+    }
+
+    function openCreateRoomModal() {
+      if (!state.selectedGameId) {
+        showNotification('请先选择一个游戏', 'error');
+        return;
+      }
+
+      document.getElementById('modal-room-name').value = document.getElementById('room-name').value || '';
+      document.getElementById('modal-is-private').checked = false;
+      document.getElementById('modal-room-password').value = '';
+      document.getElementById('password-field').style.display = 'none';
+      document.getElementById('create-room-modal').classList.add('show');
+    }
+
+    function closeCreateRoomModal() {
+      document.getElementById('create-room-modal').classList.remove('show');
+    }
+
+    function togglePasswordField() {
+      const isPrivate = document.getElementById('modal-is-private').checked;
+      document.getElementById('password-field').style.display = isPrivate ? 'block' : 'none';
+    }
+
+    function confirmCreateRoom() {
+      const roomName = document.getElementById('modal-room-name').value.trim();
+      const isPrivate = document.getElementById('modal-is-private').checked;
+      const password = document.getElementById('modal-room-password').value.trim();
+
+      if (!roomName) {
+        showNotification('请输入房间名称', 'error');
+        return;
+      }
+
+      if (isPrivate && !password) {
+        showNotification('请输入房间密码', 'error');
+        return;
+      }
+
+      state.socket.emit('lobby:create-room', {
+        gameId: state.selectedGameId,
+        roomName,
+        isPrivate,
+        password: isPrivate ? password : undefined
+      }, (success, roomId, error) => {
+        if (success) {
+          showNotification('✨ 房间创建成功！', 'success');
+          state.currentRoomId = roomId;
+          closeCreateRoomModal();
+          navigateTo('room');
+        } else {
+          showNotification(`❌ ${error || '创建房间失败'}`, 'error');
+        }
+      });
+    }
+    function loadLeaderboard() {
+      if (!state.socket) return;
+
+      state.socket.emit('lobby:get-leaderboard', { limit: 10 }, (leaderboard) => {
+        const container = document.getElementById('leaderboard-container');
+        if (!leaderboard || leaderboard.length === 0) {
+          container.innerHTML = '<div class="empty-state">暂无排行榜数据</div>';
+          return;
+        }
+
+        container.innerHTML = leaderboard.map(player => `
+          <div class="leaderboard-item">
+            <div class="rank ${player.rank === 1 ? 'top1' : player.rank === 2 ? 'top2' : player.rank === 3 ? 'top3' : ''}">
+              ${player.rank === 1 ? '🥇' : player.rank === 2 ? '🥈' : player.rank === 3 ? '🥉' : player.rank}
+            </div>
+            <div class="player-name-rank">${player.avatar || '👤'} ${player.name}</div>
+            <div class="rating">${player.rating}</div>
+          </div>
+        `).join('');
+      });
+    }
+
+    function loadStats() {
+      if (!state.socket) return;
+
+      state.socket.emit('lobby:get-stats', (stats) => {
+        const container = document.getElementById('stats-container');
+        container.innerHTML = `
+          <div class="stat-card">
+            <div class="stat-label">总游戏数</div>
+            <div class="stat-value">${stats.games.totalGames}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">活跃房间</div>
+            <div class="stat-value">${stats.rooms.totalRooms}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">在线玩家</div>
+            <div class="stat-value">${stats.players.onlinePlayers}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">游戏中</div>
+            <div class="stat-value">${stats.players.inGamePlayers}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">房间人数</div>
+            <div class="stat-value">${stats.rooms.totalPlayers}</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">等待房间</div>
+            <div class="stat-value">${stats.rooms.waitingRooms}</div>
+          </div>
+        `;
+      });
+    }
+
+    // ========== 房间功能 ==========
+    function loadRoomInfo(roomId) {
+      if (!roomId || !state.socket) return;
+
+      state.socket.emit('lobby:get-room-info', { roomId }, (roomInfo) => {
+        if (!roomInfo) return;
+
+        document.getElementById('room-title').textContent = roomInfo.name;
+        document.getElementById('room-player-count').textContent = `${roomInfo.playerCount}/${roomInfo.maxPlayers} 人`;
+
+        // 显示密码标识
+        const isPrivateEl = document.getElementById('room-is-private');
+        if (roomInfo.isPrivate) {
+          isPrivateEl.style.display = 'inline-block';
+        } else {
+          isPrivateEl.style.display = 'none';
+        }
+
+        state.isRoomOwner = roomInfo.owner_id === state.user?._id;
+
+        const startBtn = document.getElementById('room-start-btn');
+        if (state.isRoomOwner && roomInfo.status === 'waiting') {
+          startBtn.style.display = 'block';
+        } else {
+          startBtn.style.display = 'none';
+        }
+
+        updateRoomPlayers();
+      });
+    }
+
+    function updateRoomPlayers() {
+      state.socket.emit('lobby:get-room-info', { roomId: state.currentRoomId }, (roomInfo) => {
+        if (!roomInfo) return;
+
+        const container = document.getElementById('room-players-list');
+        container.innerHTML = roomInfo.players.map(player => {
+          const isCurrentUser = player.user_id === state.user?._id;
+          const isOwner = player.isOwner;
+
+          return `
+            <div class="player-item">
+              <div class="player-item-avatar">👤</div>
+              <div class="player-item-info">
+                <div class="player-item-name">${player.user_name} ${isCurrentUser ? '(你)' : ''}</div>
+                <div class="player-item-level">Lv.${player.level}</div>
+              </div>
+              ${isOwner ? '<div class="player-item-owner">房主</div>' : ''}
+              ${state.isRoomOwner && !isOwner && !isCurrentUser ? `<div class="player-item-kick" onclick="kickPlayer('${player._id}')">⊗</div>` : ''}
+            </div>
+          `;
+        }).join('');
+
+        if (document.getElementById('chat-messages').children.length === 0) {
+          document.getElementById('chat-messages').innerHTML = '<div style="color: #999; text-align: center; padding: 20px;">欢迎加入房间！</div>';
+        }
+      });
+    }
+
+    function kickPlayer(playerId) {
+      if (!state.isRoomOwner) {
+        showNotification('只有房主可以踢出玩家', 'error');
+        return;
+      }
+
+      state.socket.emit('room:kick-player', {
+        roomId: state.currentRoomId,
+        targetPlayerId: playerId
+      }, (success) => {
+        if (success) {
+          showNotification('已踢出该玩家', 'info');
+          updateRoomPlayers();
+        }
+      });
+    }
+
+    function startGame() {
+      state.socket.emit('room:start-game', { roomId: state.currentRoomId }, (success, error) => {
+        if (success) {
+          showNotification('🎮 游戏即将开始...', 'success');
+        } else {
+          showNotification(`❌ ${error || '开始游戏失败'}`, 'error');
+        }
+      });
+    }
+
+    function leaveRoom() {
+      state.socket.emit('lobby:leave-room', (success) => {
+        if (success) {
+          state.currentRoomId = null;
+          navigateTo('lobby');
+          showNotification('已离开房间', 'info');
+        }
+      });
+    }
+
+    function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const message = input.value.trim();
+      if (!message) return;
+
+      state.socket.emit('room:send-message', {
+        roomId: state.currentRoomId,
+        message
+      }, (success) => {
+        if (success) {
+          input.value = '';
+          addChatMessage('你', message, true);
+        }
+      });
+    }
+
+    function handleChatKeypress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendMessage();
+      }
+    }
+
+    function addChatMessage(name, message, isSent = false) {
+      const container = document.getElementById('chat-messages');
+      const msgEl = document.createElement('div');
+      msgEl.className = `chat-message ${isSent ? 'sent' : 'received'}`;
+      msgEl.innerHTML = `<strong>${name}:</strong> ${message}`;
+      container.appendChild(msgEl);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    // ========== 游戏功能 ==========
+    function startGameSimulation() {
+      const canvas = document.getElementById('game-canvas');
+      const ctx = canvas.getContext('2d');
+
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+
+      state.gameState = {
+        score: 0,
+        time: 0,
+        running: true,
+        startTime: Date.now()
+      };
+
+      let gameTime = 0;
+      const gameLoop = setInterval(() => {
+        if (!state.gameState.running) {
+          clearInterval(gameLoop);
+          return;
+        }
+
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        ctx.fillStyle = '#fff';
+        ctx.font = '24px Arial';
+        ctx.fillText('🎮 游戏进行中...', 50, 50);
+        ctx.fillText(`分数: ${state.gameState.score}`, 50, 100);
+
+        gameTime = Math.floor((Date.now() - state.gameState.startTime) / 1000);
+        const minutes = Math.floor(gameTime / 60);
+        const seconds = gameTime % 60;
+        document.getElementById('game-timer').textContent =
+          `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+        if (Math.random() < 0.01) {
+          state.gameState.score += 10;
+          document.getElementById('game-score').textContent = `分数: ${state.gameState.score}`;
+        }
+      }, 1000 / 60);
+    }
+
+    function exitGame() {
+      state.gameState.running = false;
+      navigateTo('room');
+      showNotification('已退出游戏', 'info');
+    }
+
+    // ========== 辅助函数 ==========
+    function updateConnectionStatus(connected) {
+      const status = document.getElementById('connection-status');
+      const text = document.getElementById('connection-text');
+      if (connected) {
+        status.classList.remove('disconnected');
+        status.classList.add('connected');
+        text.textContent = '已连接';
+      } else {
+        status.classList.remove('connected');
+        status.classList.add('disconnected');
+        text.textContent = '未连接';
+      }
+    }
+
+    function showNotification(message, type = 'info') {
+      const container = document.getElementById('notification-container');
+      const notification = document.createElement('div');
+      notification.className = `notification ${type}`;
+      notification.textContent = message;
+      container.appendChild(notification);
+
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        setTimeout(() => notification.remove(), 300);
+      }, 3000);
+    }
+
+    // 初始化
+    init();
+  </script>
+</body>
+
+</html>
