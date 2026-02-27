@@ -111,6 +111,9 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
       data: { roomId: string; password?: string },
       callback: (success: boolean, error?: string) => void
     ) => {
+      if (!callback) {
+        return;
+      }
       if (!isLoggedIn) {
         callback(false, '加入房间需要登陆');
         return;
@@ -207,6 +210,9 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
    * 获取排行榜
    */
   socket.on('lobby:get-leaderboard', async (data: { limit?: number }, callback: (leaderboard: any[]) => void) => {
+    if (!callback) {
+      return;
+    }
     const limit = data.limit || 10;
     const leaderboard = (await playerService.getLeaderboard(limit)).map(player => ({
       rank: 0,

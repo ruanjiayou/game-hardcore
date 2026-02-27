@@ -130,8 +130,7 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
         // 通知房间内其他玩家
         if (!result.roomDestroyed) {
           io.to(`room:${roomId}`).emit('room:player-kicked', {
-            playerId: player_id,
-            playerCount: room.players.length
+            player_id: player_id,
           });
         } else {
           // 房间因此解散
@@ -223,9 +222,8 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
       } else if (room && room.players.length > 0) {
         // 房间还有人，通知其他玩家
         io.to(`room:${room._id}`).emit('lobby:player-left', {
-          playerId: player._id,
-          playerName: player.user_name,
-          playerCount: room.players.length
+          player_id: player._id,
+          player_name: player.user_name,
         });
       }
 
