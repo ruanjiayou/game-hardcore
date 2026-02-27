@@ -8,6 +8,8 @@ import { playerService } from '../services/PlayerService';
 import type { AuthSocket } from '../middleware/auth';
 
 export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: string) {
+  const isLoggedIn = socket.isLoggedIn;
+  const isGuest = socket.isGuest;
   /**
    * 发送房间消息
    */
@@ -28,8 +30,8 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
       }
 
       io.to(`room:${roomId}`).emit('room:message', {
-        playerId: player._id,
-        playerName: player.user_name,
+        player_id: player._id,
+        player_name: player.user_name,
         message,
         timestamp: Date.now()
       });
@@ -181,4 +183,58 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
       }
     }
   );
+
+  /**
+   * 离开房间 - 支持自动解散
+   */
+  socket.on('room:leave', async (
+    data: { roomId: string; },
+    callback: (success: boolean) => void) => {
+    if (!isLoggedIn) {
+      callback(false);
+      return;
+    }
+    const room = await roomService.getRoomById(data.roomId);
+    if (!room) {
+      callback(false);
+      return;
+    }
+    const player = room.players.find(p => p.user_id === socket.user_id);
+    if (!player) {
+      callback(false);
+      return;
+    }
+
+    try {
+      const result = await roomService.leaveRoom(room._id, player._id);
+      if (!result.left) {
+        callback(false);
+        return;
+      }
+
+      socket.leave(`room:${room._id}`);
+
+      if (result.roomDestroyed) {
+        // 房间已解散，通知游戏中的其他玩家
+        socket.leave(`game:${room?.gameId}`);
+        io.to(`game:${room?.gameId}`).emit('lobby:room-destroyed', {
+          roomId: room._id
+        });
+      } else if (room && room.players.length > 0) {
+        // 房间还有人，通知其他玩家
+        io.to(`room:${room._id}`).emit('lobby:player-left', {
+          playerId: player._id,
+          playerName: player.user_name,
+          playerCount: room.players.length
+        });
+      }
+
+      callback(true);
+      console.log(`👤 玩家 ${player.user_id} 离开房间 ${room._id}`);
+    } catch (error) {
+      console.log(error, 'err')
+      callback(false);
+    }
+  });
+
 }

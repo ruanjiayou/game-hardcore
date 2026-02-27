@@ -1,5 +1,5 @@
 {
-  "name": "game-lobby",
+  "name": "game-hardcore",
   "version": "1.0.0",
   "description": "游戏大厅系统 - Bun + Express + Socket.io",
   "type": "module",

@@ -48,7 +48,7 @@ export async function authMiddleware(socket: AuthSocket, next: (err?: Error) => 
   console.log(
     `🔐 玩家认证成功: ${user.name} (${user._id}) | 状态: ${isLoggedIn ? '登陆' : '游客'}`
   );
-
+  
   next();
 }
 

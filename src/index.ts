@@ -22,9 +22,13 @@ const app: Express = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
-  }
+    origin: ['http://localhost:5173', 'http://localhost:3000', '*'],
+    methods: ['GET', 'POST'],
+    credentials: true
+  },
+  transports: ['websocket', 'polling'],  // 支持两种传输方式
+  pingInterval: 25000,
+  pingTimeout: 60000
 });
 
 const PORT = process.env.PORT || 3000;

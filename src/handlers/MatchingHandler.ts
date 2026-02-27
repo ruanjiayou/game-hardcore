@@ -6,7 +6,7 @@ import type { Server, Socket } from 'socket.io';
 import { matchingService } from '../services/MatchingService';
 import { playerService } from '../services/PlayerService';
 import { roomService } from '../services/RoomService';
-import type { MatchingMode } from '../types/index';
+import type { IPlayer, MatchingMode } from '../types/index';
 import type { AuthSocket } from '../middleware/auth';
 
 export function setupMatchingHandlers(io: Server, socket: AuthSocket, playerId: string) {
@@ -106,7 +106,8 @@ function _tryMatching(io: Server, gameId: string, playerName: string) {
         const room = await roomService.createRoom({
           gameId,
           name: `Ranked Match - ${Date.now()}`,
-          owner,
+          owner_id: owner.user_id,
+          players: [owner],
           numbers: {
             min: 2,
             max: Math.min(2, players.length)
@@ -116,13 +117,13 @@ function _tryMatching(io: Server, gameId: string, playerName: string) {
         });
 
         for (let i = 1; i < players.length; i++) {
-          roomService.joinRoom(room._id, players[i]);
+          roomService.joinRoom(room._id as string, players[i]);
         }
 
         matched.forEach(req => {
           io.to(req.playerId).emit('matching:matched', {
             roomId: room._id,
-            opponents: room.players
+            opponents: (room.players as IPlayer[])
               .filter(p => p._id !== req.playerId)
               .map(p => ({
                 _id: p._id,

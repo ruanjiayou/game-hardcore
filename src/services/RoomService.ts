@@ -4,7 +4,7 @@
 
 import { v7 } from 'uuid';
 import type { IRoom, IPlayer, RoomStatus } from '../types/index';
-import { MRoom } from '../models'
+import { MPlayer, MRoom } from '../models'
 import { isEmpty, sumBy } from 'lodash';
 import redis from '../utils/redis'
 import config from '../config';
@@ -14,33 +14,16 @@ export class RoomService {
   /**
    * 创建房间 - 支持密码
    */
-  async createRoom(data: {
-    gameId: string;
-    name: string;
-    owner: IPlayer;
-    numbers: { min: number, max: number };
-    isPrivate?: boolean;
-    password?: string;
-    settings?: Record<string, any>;
-  }): Promise<IRoom> {
-    const room: IRoom = {
-      _id: v7(),
-      gameId: data.gameId,
-      name: data.name,
-      status: 'waiting',
-      owner_id: data.owner.user_id,
-      players: [data.owner],
-      numbers: data.numbers,
-      isPrivate: data.isPrivate || false,
-      password: data.password,
-      createdAt: Date.now(),
-      settings: data.settings || {}
-    };
+  async createRoom(data: Partial<IRoom>) {
+    data._id = v7();
+    data.status = 'waiting'
+    data.createdAt = new Date();
+    data.updatedAt = new Date();
 
-    await MRoom.create(room);
+    await MRoom.create(data);
 
-    console.log(`✨ 房间创建: ${room._id} (${room.name}) ${room.isPrivate ? '🔒 私密' : '🔓 公开'}`);
-    return room;
+    console.log(`✨ 房间创建: ${data._id} (${data.name}) ${data.isPrivate ? '🔒 私密' : '🔓 公开'}`);
+    return data;
   }
 
   /**
@@ -59,7 +42,7 @@ export class RoomService {
    * 获取游戏的所有房间
    */
   async getRoomsByGameId(gameId: string): Promise<IRoom[]> {
-    const rooms = await MRoom.find({ gameId }).lean(true);
+    const rooms = await MRoom.find({ gameId, status: { $ne: 'finished' } }).lean(true);
     return rooms;
   }
 
@@ -114,8 +97,8 @@ export class RoomService {
     }
 
     room.players.push(player);
-    player.status = 'in-room';
-
+    await MRoom.updateOne({ _id: room._id }, { $set: { players: room.players } })
+    await MPlayer.updateOne({ _id: player._id }, { $set: { status: 'in-room' } })
     console.log(`👤 玩家 ${player._id} 加入房间 ${roomId}，当前人数: ${room.players.length}`);
     return true;
   }
@@ -133,6 +116,8 @@ export class RoomService {
     const player = room.players[playerIndex];
     room.players.splice(playerIndex, 1);
 
+    await MRoom.updateOne({ _id: room._id }, { $set: { players: room.players } })
+    await MPlayer.updateOne({ _id: player._id }, { $set: { status: 'in-lobby' } })
     console.log(`👤 玩家 ${player.user_id} 离开房间 ${roomId}，当前人数: ${room.players.length}`);
 
     // 关键：如果房间没人了，自动解散
@@ -167,7 +152,7 @@ export class RoomService {
     }
 
     room.status = 'loading';
-    room.startedAt = Date.now();
+    room.startedAt = new Date();
 
     console.log(`🎮 房间 ${roomId} 开始游戏，玩家数: ${room.players.length}`);
     return true;

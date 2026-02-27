@@ -70,7 +70,8 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
         const room = await roomService.createRoom({
           gameId,
           name: roomName,
-          owner: player,
+          owner_id: player.user_id,
+          players: [player],
           numbers: game.numbers,
           isPrivate: isPrivate || false,
           password: isPrivate ? password : undefined,
@@ -80,7 +81,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
           }
         });
 
-        await roomService.joinRoom(room._id, player);
+        await roomService.joinRoom(room._id as string, player);
         socket.join(`room:${room._id}`);
         socket.join(`game:${gameId}`);
 
@@ -121,9 +122,10 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
         callback(false, '房间不存在');
         return;
       }
-
-      // 检查房间是否已满
-      if (room.players.length >= room.numbers.max) {
+      let inroom = false;
+      if (room.players.findIndex(p => p.user_id === socket.user_id) !== -1) {
+        inroom = true
+      } else if (room.players.length >= room.numbers.max) {
         callback(false, '房间已满');
         return;
       }
@@ -137,7 +139,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
       let player: IPlayer | null = null;
       try {
         player = await playerService.getOrCreatePlayer(user_id, room.gameId);
-      } catch (err) {
+      } catch (err: any) {
         console.log('获取用户错误', err.message)
       }
 
@@ -147,20 +149,22 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
       }
 
       try {
-        const joined = roomService.joinRoom(roomId, player, password);
-        if (!joined) {
-          callback(false, room.isPrivate ? '房间密码错误' : '加入房间失败');
-          return;
+        if (!inroom) {
+          const joined = roomService.joinRoom(roomId, player, password);
+          if (!joined) {
+            callback(false, room.isPrivate ? '房间密码错误' : '加入房间失败');
+            return;
+          }
         }
 
         socket.join(`room:${roomId}`);
         socket.join(`game:${room.gameId}`);
 
         io.to(`room:${roomId}`).emit('lobby:player-joined', {
-          playerId: player._id,
-          playerName: player.user_name,
+          player_id: player._id,
+          player_name: player.user_name,
           avatar: player.avatar,
-          playerCount: room.players.length,
+          players: room.players.length,
           numbers: room.numbers
         });
 
@@ -178,64 +182,11 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
   );
 
   /**
-   * 离开房间 - 支持自动解散
-   */
-  socket.on('lobby:leave-room', async (callback: (success: boolean) => void) => {
-    if (!isLoggedIn) {
-      callback(false);
-      return;
-    }
-
-    const player = await playerService.getPlayerById(user_id);
-    if (!player) {
-      callback(false);
-      return;
-    }
-
-    const room = await roomService.getRoomByPlayerId(player._id);
-    if (!room) {
-      callback(false);
-      return;
-    }
-
-    try {
-      const result = await roomService.leaveRoom(room._id, user_id);
-
-      if (!result.left) {
-        callback(false);
-        return;
-      }
-
-      socket.leave(`room:${room._id}`);
-
-      if (result.roomDestroyed) {
-        // 房间已解散，通知游戏中的其他玩家
-        socket.leave(`game:${room?.gameId}`);
-        io.to(`game:${room?.gameId}`).emit('lobby:room-destroyed', {
-          roomId: room._id
-        });
-      } else if (room && room.players.length > 0) {
-        // 房间还有人，通知其他玩家
-        io.to(`room:${room._id}`).emit('lobby:player-left', {
-          playerId: player._id,
-          playerName: player.user_name,
-          playerCount: room.players.length
-        });
-      }
-
-      callback(true);
-      console.log(`👤 玩家 ${player.user_id} 离开房间 ${room._id}`);
-    } catch (error) {
-      callback(false);
-    }
-  });
-
-  /**
    * 获取房间详细信息
    */
-  socket.on('lobby:get-room-info', (data: { roomId: string }, callback: (roomInfo: any) => void) => {
+  socket.on('lobby:get-room-info', async (data: { roomId: string }, callback: (roomInfo: any) => void) => {
     const { roomId } = data;
-    const roomInfo = roomService.getRoomInfo(roomId);
+    const roomInfo = await roomService.getRoomInfo(roomId);
     callback(roomInfo);
   });
 

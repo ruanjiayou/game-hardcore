@@ -2011,7 +2011,7 @@
         if (!roomInfo) return;
 
         document.getElementById('room-title').textContent = roomInfo.name;
-        document.getElementById('room-player-count').textContent = `${roomInfo.playerCount}/${roomInfo.maxPlayers} 人`;
+        document.getElementById('room-player-count').textContent = `${roomInfo.numbers.min}/${roomInfo.numbers.max} 人`;
 
         // 显示密码标识
         const isPrivateEl = document.getElementById('room-is-private');
@@ -2037,7 +2037,6 @@
     function updateRoomPlayers() {
       state.socket.emit('lobby:get-room-info', { roomId: state.currentRoomId }, (roomInfo) => {
         if (!roomInfo) return;
-        console.log(roomInfo)
         const container = document.getElementById('room-players-list');
         container.innerHTML = roomInfo.players.map(player => {
           const isCurrentUser = player.user_id === state.user?._id;
@@ -2090,7 +2089,7 @@
     }
 
     function leaveRoom() {
-      state.socket.emit('lobby:leave-room', (success) => {
+      state.socket.emit('lobby:leave-room', { roomId: state.currentRoomId }, (success) => {
         if (success) {
           state.currentRoomId = null;
           navigateTo('lobby');

@@ -18,8 +18,9 @@ export class GameService {
   async getAllGames(stat: boolean): Promise<IGame[]> {
     const games = await MGame.find().lean(true)
     if (stat) {
-      const list = await MRoom.aggregate([{ $group: { _id: '$gameId', rooms: { $sum: 1 }, players: { $sum: { $size: '$players' } } } }])
-      console.log(list)
+      const list = await MRoom.aggregate([
+        { $match: { status: { $ne: 'finished' } } },
+        { $group: { _id: '$gameId', rooms: { $sum: 1 }, players: { $sum: { $size: '$players' } } } }])
       games.forEach(game => {
         const detail = list.find(v => v._id === game._id);
         if (detail) {
@@ -55,7 +56,7 @@ export class GameService {
     const game: IGame = {
       ...data,
       _id: v7(),
-      createdAt: Date.now(),
+      createdAt: new Date(),
     };
     await MGame.create(game)
     return game;

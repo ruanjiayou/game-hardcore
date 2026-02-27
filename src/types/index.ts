@@ -11,8 +11,8 @@ export interface IGame {
   genre: 'fps' | 'moba' | 'rpg' | 'card' | 'puzzle';
   icon: string;
   status: number;
-  createdAt: number;
-  updatedAt: number;
+  createdAt: Date;
+  updatedAt: Date;
   rooms?: number;
   players?: number;
 }
@@ -25,14 +25,15 @@ export interface IRoom {
   _id: string;
   gameId: string;
   name: string;
-  status: string;
+  status: string; // in-room in-lobby in-game leave
   owner_id: string;
   players: IPlayer[];
   numbers: { min: number, max: number };
   isPrivate: boolean;
   password?: string;  // 新增：房间密码
-  createdAt: number;
-  startedAt?: number;
+  createdAt: Date;
+  updatedAt: Date;
+  startedAt?: Date;
   settings: Record<string, any>;
 }
 
@@ -59,8 +60,8 @@ export interface IPlayer {
   exp: number;
   stats: PlayerStats;
   status: string; // 'online' | 'in-lobby' | 'in-room' | 'in-game';
-  created_at: Date;
-  updated_at: Date;
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface PlayerStats {
