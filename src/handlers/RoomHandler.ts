@@ -114,9 +114,9 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
       }
 
       try {
-        const result = await roomService.leaveRoom(roomId, player_id);
+        const success = await roomService.leaveRoom(roomId, player_id);
 
-        if (!result.left) {
+        if (!success) {
           callback(false);
           return;
         }
@@ -128,14 +128,9 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
         });
 
         // 通知房间内其他玩家
-        if (!result.roomDestroyed) {
+        if (success) {
           io.to(`room:${roomId}`).emit('room:player-kicked', {
             player_id: player_id,
-          });
-        } else {
-          // 房间因此解散
-          io.to(`game:${room.gameId}`).emit('lobby:room-destroyed', {
-            roomId
           });
         }
 
@@ -184,7 +179,7 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
   );
 
   /**
-   * 离开房间 - 支持自动解散
+   * 离开房间
    */
   socket.on('room:leave', async (
     data: { roomId: string; },
@@ -205,27 +200,14 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
     }
 
     try {
-      const result = await roomService.leaveRoom(room._id, player._id);
-      if (!result.left) {
+      const success = await roomService.leaveRoom(room._id, player._id);
+      if (!success) {
         callback(false);
         return;
       }
-
+      socket.room_id = undefined;
       socket.leave(`room:${room._id}`);
-
-      if (result.roomDestroyed) {
-        // 房间已解散，通知游戏中的其他玩家
-        socket.leave(`game:${room?.gameId}`);
-        io.to(`game:${room?.gameId}`).emit('lobby:room-destroyed', {
-          roomId: room._id
-        });
-      } else if (room && room.players.length > 0) {
-        // 房间还有人，通知其他玩家
-        io.to(`room:${room._id}`).emit('lobby:player-left', {
-          player_id: player._id,
-          player_name: player.user_name,
-        });
-      }
+      io.to(`room:${room._id}`).emit('room:player-leaved', { room_id: room._id, player_id: player._id });
 
       callback(true);
       console.log(`👤 玩家 ${player.user_id} 离开房间 ${room._id}`);
@@ -235,4 +217,17 @@ export function setupRoomHandlers(io: Server, socket: AuthSocket, playerId: stri
     }
   });
 
+  socket.on('room:close', async (data: { roomId: string }, cb: Function) => {
+    const room = await roomService.destroyRoom(data.roomId);
+    if (room) {
+      // 房间已解散，通知游戏中的其他玩家
+      socket.leave(`game:${room?.gameId}`);
+      io.to(`game:${room?.gameId}`).emit('lobby:room-destroyed', {
+        roomId: room._id
+      });
+      cb(true);
+    } else {
+      cb(false);
+    }
+  })
 }

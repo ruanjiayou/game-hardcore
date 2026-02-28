@@ -10,6 +10,8 @@ import { oauthService } from '../services/OAuthService';
 
 export interface AuthSocket extends Socket {
   user_id?: string;
+  player_id?: string;
+  room_id?: string;
   isLoggedIn?: boolean;
   isGuest?: boolean;
   redis?: ioredis

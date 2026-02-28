@@ -26,19 +26,23 @@ export class PlayerService {
       throw new Error('用户不存在')
     }
     // 创建新玩家
+    const time = new Date();
     player = await MPlayer.create({
       _id: v7(),
       game_id,
       user_id,
       user_name: user.name,
-      status: 'in-room',
+      status: 1,
+      online: true,
+      state: 'idle',
       avatar: user.avatar,
+      createdAt: time,
+      updatedAt: time,
       stats: {
-        totalGames: 0,
-        wins: 0,
-        losses: 0,
-        winRate: 0,
-        rating: 0
+        games: 0,
+        winnings: 0,
+        win_rate: 0,
+        flee_rate: 0,
       }
     });
 
@@ -78,20 +82,17 @@ export class PlayerService {
     if (!player) return;
 
     const stats = player.stats;
-    stats.totalGames++;
+    stats.games++;
 
     if (isWin) {
-      stats.wins++;
-    } else {
-      stats.losses++;
+      stats.winnings++;
     }
 
-    stats.winRate = stats.totalGames > 0 ? stats.wins / stats.totalGames : 0;
-    stats.rating = Math.max(0, stats.rating + ratingChange);
+    stats.wins_rate = stats.games > 0 ? stats.winnings / stats.games : 0;
 
     // 升级逻辑：每赢10局升1级
     const requiredWins = player.level * 10;
-    if (stats.wins >= requiredWins) {
+    if (stats.winnings >= requiredWins) {
       player.level++;
       console.log(`🎉 玩家 ${player.user_id} 升级到 Lv.${player.level}`);
     }

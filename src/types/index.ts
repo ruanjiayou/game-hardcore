@@ -1,3 +1,4 @@
+export type CB = Function;
 /**
  * 游戏大厅系统的类型定义
  */
@@ -18,16 +19,16 @@ export interface IGame {
 }
 
 // ========== 房间相关 ==========
-export type RoomStatus = 'waiting' | 'loading' | 'playing' | 'finished';
+export type RoomStatus = 'waiting' | 'loading' | 'playing' | 'closed';
 
 // 更新 Room 接口
 export interface IRoom {
   _id: string;
   gameId: string;
   name: string;
-  status: string; // in-room in-lobby in-game leave
+  status: string; // 'waiting' | 'playing' | 'closed'
   owner_id: string;
-  players: IPlayer[];
+  players: IRoomPlayer[];
   numbers: { min: number, max: number };
   isPrivate: boolean;
   password?: string;  // 新增：房间密码
@@ -56,20 +57,27 @@ export interface IPlayer {
   user_name: string;
   avatar: string;
 
-  level: number;
-  exp: number;
+  title: string; // 称号
+  level: number; // 等级
+  score: number; // 分数
+  exp: number; // 经验值
   stats: PlayerStats;
-  status: string; // 'online' | 'in-lobby' | 'in-room' | 'in-game';
+  online: boolean;
+  status: number; // 1 normal 2 muted 3 banned
+  state: string; // idle ready in-lobby matching in-game watching
   createdAt: Date;
   updatedAt: Date;
 }
+export interface IRoomPlayer extends IPlayer {
+  type: string; // play watch
+  is_robot: boolean; // 是否是人机
+}
 
 export interface PlayerStats {
-  totalGames: number;
-  wins: number;
-  losses: number;
-  winRate: number;
-  rating: number;
+  games: number;
+  winnings: number;
+  wins_rate: number;
+  flee_rate: number;
 }
 
 // ========== 匹配相关 ==========
@@ -87,7 +95,6 @@ export interface MatchingRequest {
 // ========== 事件相关 ==========
 export interface SocketWithAuth {
   id: string;
-  playerId: string;
   data: any;
   emit: (event: string, data?: any) => void;
   on: (event: string, callback: (data?: any) => void) => void;

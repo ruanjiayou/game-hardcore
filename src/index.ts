@@ -93,10 +93,10 @@ io.on('connection', (socket: AuthSocket) => {
       }
     })
   // 广播用户上线
-  io.emit('lobby:user-online', {
-    user_id,
-    timestamp: Date.now()
-  });
+  if (socket.room_id) {
+    io.to(`room:${socket.room_id}`).emit('room:player-network', { player_id: socket.player_id, online: true, timestamp: Date.now() });
+  }
+  io.emit('lobby:user-network', { user_id, online: true, timestamp: Date.now() });
 
   // 注册事件处理器
   setupLobbyHandlers(io, socket, user_id);
@@ -128,10 +128,11 @@ io.on('connection', (socket: AuthSocket) => {
         }
       })
     // 广播玩家离线
-    io.emit('lobby:user-offline', {
-      user_id,
-      timestamp: Date.now()
-    });
+    if (socket.room_id) {
+      io.to(`room:${socket.room_id}`).emit('room:player-network', { player_id: socket.player_id, online: false, timestamp: Date.now() });
+    }
+    io.emit('lobby:user-network', { user_id, online: false, timestamp: Date.now() });
+
 
     console.log(`❌ 玩家断开: ${user_id} (${socket.id})\n`);
   });

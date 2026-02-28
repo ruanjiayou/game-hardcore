@@ -5,7 +5,7 @@
 import { v7 } from 'uuid';
 import type { IRoom, IPlayer, RoomStatus } from '../types/index';
 import { MPlayer, MRoom } from '../models'
-import { isEmpty, sumBy } from 'lodash';
+import { isEmpty, pick, sumBy } from 'lodash';
 import redis from '../utils/redis'
 import config from '../config';
 
@@ -33,16 +33,12 @@ export class RoomService {
     const room = await MRoom.findById(roomId).lean(true);
     return room || null;
   }
-  async getRoomByPlayerId(player_id: string): Promise<IRoom | null> {
-    const room = await MRoom.findOne({ 'players._id': player_id }).lean(true);
-    return room || null;
-  }
 
   /**
    * 获取游戏的所有房间
    */
   async getRoomsByGameId(gameId: string): Promise<IRoom[]> {
-    const rooms = await MRoom.find({ gameId, status: { $ne: 'finished' } }).lean(true);
+    const rooms = await MRoom.find({ gameId, status: { $ne: 'closed' } }).lean(true);
     return rooms;
   }
 
@@ -50,7 +46,7 @@ export class RoomService {
    * 获取所有房间
    */
   async getAllRooms(): Promise<IRoom[]> {
-    const rooms = await MRoom.find({}).lean(true);
+    const rooms = await MRoom.find({ status: { $ne: 'closed' } }).lean(true);
     return rooms;
   }
 
@@ -96,9 +92,8 @@ export class RoomService {
       return false;
     }
 
-    room.players.push(player);
+    room.players.push({ ...player, type: 'play', is_robot: false });
     await MRoom.updateOne({ _id: room._id }, { $set: { players: room.players } })
-    await MPlayer.updateOne({ _id: player._id }, { $set: { status: 'in-room' } })
     console.log(`👤 玩家 ${player._id} 加入房间 ${roomId}，当前人数: ${room.players.length}`);
     return true;
   }
@@ -106,38 +101,19 @@ export class RoomService {
   /**
    * 玩家离开房间 - 支持自动解散
    */
-  async leaveRoom(roomId: string, playerId: string): Promise<{ left: boolean; roomDestroyed: boolean }> {
+  async leaveRoom(roomId: string, playerId: string): Promise<boolean> {
     const room = await MRoom.findById(roomId).lean(true);
-    if (!room) return { left: false, roomDestroyed: false };
+    if (!room) return false;
 
     const playerIndex = room.players.findIndex(p => p._id === playerId);
-    if (playerIndex === -1) return { left: false, roomDestroyed: false };
+    if (playerIndex === -1) return false;
 
     const player = room.players[playerIndex];
     room.players.splice(playerIndex, 1);
-
     await MRoom.updateOne({ _id: room._id }, { $set: { players: room.players } })
-    await MPlayer.updateOne({ _id: player._id }, { $set: { status: 'in-lobby' } })
     console.log(`👤 玩家 ${player.user_id} 离开房间 ${roomId}，当前人数: ${room.players.length}`);
 
-    // 关键：如果房间没人了，自动解散
-    if (room.players.length === 0) {
-      this.destroyRoom(roomId);
-      return { left: true, roomDestroyed: true };
-    }
-
-    // 如果房主离开，转移房主权或解散
-    if (player._id === room.owner_id) {
-      if (room.players.length > 0) {
-        await MRoom.updateOne({ _id: room._id }, { $set: { owner_id: room.players[0].user_id } })
-        console.log(`👑 房间 ${roomId} 房主转移给 ${room.players[0].user_id}`);
-      } else {
-        this.destroyRoom(roomId);
-        return { left: true, roomDestroyed: true };
-      }
-    }
-
-    return { left: true, roomDestroyed: false };
+    return true;
   }
 
   /**
@@ -190,11 +166,12 @@ export class RoomService {
   /**
    * 销毁房间
    */
-  private async destroyRoom(roomId: string): Promise<void> {
+  async destroyRoom(roomId: string) {
     const room = await MRoom.findById(roomId).lean(true);
     if (!room) return;
     await MRoom.updateOne({ _id: roomId }, { $set: { status: 'finished' } });
-    console.log(`🗑️  房间自动解散: ${roomId}`);
+    console.log(`🗑️  房间解散: ${roomId}`);
+    return room;
   }
 
   /**
