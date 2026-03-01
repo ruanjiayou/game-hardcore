@@ -9,7 +9,7 @@ import { roomService } from '../services/RoomService';
 import type { IPlayer, MatchingMode } from '../types/index';
 import type { AuthSocket } from '../middleware/auth';
 
-export function setupMatchingHandlers(io: Server, socket: AuthSocket, playerId: string) {
+export function setupMatchingHandlers(io: Server, socket: AuthSocket, player_id: string) {
   /**
    * 加入匹配队列 - 需要登陆
    */
@@ -23,7 +23,7 @@ export function setupMatchingHandlers(io: Server, socket: AuthSocket, playerId: 
       }
 
       const { gameId, mode } = data;
-      const player = await playerService.getPlayerById(playerId);
+      const player = await playerService.getPlayerById(player_id);
 
       if (!player) {
         callback(false, '玩家不存在');
@@ -32,13 +32,13 @@ export function setupMatchingHandlers(io: Server, socket: AuthSocket, playerId: 
 
       try {
         matchingService.addToQueue({
-          playerId,
-          gameId,
+          player_id,
+          game_id: gameId,
           mode,
           createdAt: Date.now()
         });
 
-        playerService.updatePlayerStatus(playerId, 'in-lobby');
+        playerService.updatePlayerStatus(player_id, 'in-lobby');
 
         socket.emit('matching:joined-queue', {
           gameId,
@@ -70,7 +70,7 @@ export function setupMatchingHandlers(io: Server, socket: AuthSocket, playerId: 
       const { gameId } = data;
 
       try {
-        matchingService.removeFromQueue(gameId, playerId);
+        matchingService.removeFromQueue(gameId, player_id);
         socket.emit('matching:left-queue', { gameId });
         callback(true);
         console.log(`🚫 玩家 ${socket.user_id} 取消匹配 (游戏: ${gameId})`);
@@ -98,16 +98,16 @@ function _tryMatching(io: Server, gameId: string, playerName: string) {
 
     if (matched) {
       console.log(`✅ 匹配成功: ${matched.length} 个玩家`);
+      // @ts-ignore
+      const players: IPlayer[] = (await Promise.all(matched.map(req => playerService.getPlayerById(req.player_id)))).filter(v => v);
 
-      const players = (await Promise.all(matched.map(req => playerService.getPlayerById(req.playerId)))).filter(v => v !== null);
-
-      if (players.length > 0) {
+      if (players[0]) {
         const owner = players[0];
         const room = await roomService.createRoom({
           gameId,
           name: `Ranked Match - ${Date.now()}`,
-          owner_id: owner.user_id,
-          players: [owner],
+          owner_id: owner?.user_id,
+          players: [],
           numbers: {
             min: 2,
             max: Math.min(2, players.length)
@@ -121,10 +121,10 @@ function _tryMatching(io: Server, gameId: string, playerName: string) {
         }
 
         matched.forEach(req => {
-          io.to(req.playerId).emit('matching:matched', {
+          io.to(req.player_id).emit('matching:matched', {
             roomId: room._id,
             opponents: (room.players as IPlayer[])
-              .filter(p => p._id !== req.playerId)
+              .filter(p => p._id !== req.player_id)
               .map(p => ({
                 _id: p._id,
                 user_name: p.user_name,

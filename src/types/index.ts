@@ -3,6 +3,10 @@ export type CB = Function;
  * 游戏大厅系统的类型定义
  */
 
+export interface IRoleConfig {
+  mode: 'fixed' | 'team' | 'custom',
+  roles: { name: string; size: number }[]
+}
 // ========== 游戏相关 ==========
 export interface IGame {
   _id: string;
@@ -14,6 +18,7 @@ export interface IGame {
   status: number;
   createdAt: Date;
   updatedAt: Date;
+  role_config: object;
   rooms?: number;
   players?: number;
 }
@@ -26,9 +31,11 @@ export interface IRoom {
   _id: string;
   gameId: string;
   name: string;
-  status: string; // 'waiting' | 'playing' | 'closed'
+  status: string; // 'waiting' | 'ready' | 'playing' | 'closed'
   owner_id: string;
   players: IRoomPlayer[];
+  seats: ISeat[],
+  state: Object,
   numbers: { min: number, max: number };
   isPrivate: boolean;
   password?: string;  // 新增：房间密码
@@ -48,11 +55,16 @@ export interface IUser {
   createdAt: Date;
   updatedAt: Date;
 }
-
+export interface ISeat {
+  role: string;
+  team: string;
+  user_id: string;
+}
 // ========== 玩家相关 ==========
 export interface IPlayer {
   _id: string;
   game_id: string;
+  room_id: string;
   user_id: string;
   user_name: string;
   avatar: string;
@@ -64,13 +76,13 @@ export interface IPlayer {
   stats: PlayerStats;
   online: boolean;
   status: number; // 1 normal 2 muted 3 banned
-  state: string; // idle ready in-lobby matching in-game watching
   createdAt: Date;
   updatedAt: Date;
 }
 export interface IRoomPlayer extends IPlayer {
-  type: string; // play watch
+  state: string; 
   is_robot: boolean; // 是否是人机
+  role?: string; // 角色
 }
 
 export interface PlayerStats {
@@ -84,8 +96,8 @@ export interface PlayerStats {
 export type MatchingMode = 'ranked' | 'casual' | 'team';
 
 export interface MatchingRequest {
-  playerId: string;
-  gameId: string;
+  player_id: string;
+  game_id: string;
   mode: MatchingMode;
   minimumLevel?: number;
   maximumRating?: number;

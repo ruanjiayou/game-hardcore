@@ -6,7 +6,7 @@ import type { Socket } from 'socket.io';
 import ioredis from 'ioredis'
 import { userService } from '../services/UserService';
 import redis from '../utils/redis'
-import { oauthService } from '../services/OAuthService';
+import { MPlayer } from '../models';
 
 export interface AuthSocket extends Socket {
   user_id?: string;
@@ -46,11 +46,15 @@ export async function authMiddleware(socket: AuthSocket, next: (err?: Error) => 
   socket.isLoggedIn = isLoggedIn;
   socket.isGuest = isGuest;
   socket.redis = redis
+  const player = await MPlayer.findOne({ user_id }).lean(true);
+  if (player && player.room_id) {
+    socket.join(`room:${player.room_id}`)
+  }
 
   console.log(
     `🔐 玩家认证成功: ${user.name} (${user._id}) | 状态: ${isLoggedIn ? '登陆' : '游客'}`
   );
-  
+
   next();
 }
 

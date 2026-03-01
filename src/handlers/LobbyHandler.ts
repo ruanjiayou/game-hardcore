@@ -9,6 +9,7 @@ import { playerService } from '../services/PlayerService';
 import type { AuthSocket } from '../middleware/auth';
 import { userService } from '../services/UserService';
 import { IPlayer, CB } from '../types';
+import { MRoom } from '../models';
 
 export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: string) {
   const isLoggedIn = socket.isLoggedIn;
@@ -16,13 +17,13 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
 
   socket.on('lobby:get-games', getGames);
   socket.on('lobby:get-rooms', getRooms);
-  socket.on('lobby:get-game-player', getGamePlayer);
   socket.on('lobby:create-room', createRoom);
   socket.on('lobby:join-room', joinRoom);
-  socket.on('lobby:get-room-info', getRoomInfo);
   socket.on('lobby:get-user-info', getUserInfo);
   socket.on('lobby:get-leaderboard', getLeaderboard);
   socket.on('lobby:get-stats', getStats);
+
+  socket.on('lobby:get-game-player', getGamePlayer);
 
   async function getGames(cb: CB) {
     const games = await gameService.getAllGames(true);
@@ -35,10 +36,13 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
   }
   async function getGamePlayer(data: { gameId: string }, cb: CB) {
     const player = await playerService.getOrCreatePlayer(user_id, data.gameId);
-    if (player) {
-      socket.player_id = player._id;
+    if (player.room_id) {
+      const room = await roomService.getRoomById(player.room_id);
+      const roomPlayer = room?.players.find(p => p._id === player._id)
+      cb({ ...roomPlayer, room_id: player.room_id });
+    } else {
+      cb(player);
     }
-    cb(player);
   }
   async function createRoom(data: { gameId: string; roomName: string; isPrivate?: boolean; password?: string }, cb: CB) {
     if (!isLoggedIn) {
@@ -71,7 +75,7 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
         gameId,
         name: roomName,
         owner_id: player.user_id,
-        players: [{ ...player, type: 'play', is_robot: false }],
+        players: [],
         numbers: game.numbers,
         isPrivate: isPrivate || false,
         password: isPrivate ? password : undefined,
@@ -80,10 +84,6 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
           mode: 'casual'
         }
       });
-
-      await roomService.joinRoom(room._id as string, player);
-      socket.join(`room:${room._id}`);
-      socket.join(`game:${gameId}`);
 
       io.to(`game:${gameId}`).emit('lobby:room-created', {
         roomId: room._id,
@@ -143,21 +143,24 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
 
     try {
       if (!inroom) {
-        const joined = roomService.joinRoom(roomId, player, password);
-        if (!joined) {
+        const success = await roomService.joinRoom(roomId, player, password);
+        if (!success) {
           cb(false, room.isPrivate ? '房间密码错误' : '加入房间失败');
           return;
         }
       }
+      // 处理页面刷新 信息丢失
+      const new_room = await MRoom.findById(roomId).lean(true)
       socket.room_id = roomId;
+      socket.player_id = player._id;
       socket.join(`room:${roomId}`);
       socket.join(`game:${room.gameId}`);
 
-      io.to(`room:${roomId}`).emit('room:player-joined', player);
+      io.to(`room:${roomId}`).emit('room:player-joined', new_room?.players.find(p => p._id === player?._id));
 
       socket.emit('lobby:joined-room', {
         roomId: room._id,
-        roomInfo: await roomService.getRoomInfo(roomId)
+        roomInfo: await roomService.getRoomById(roomId)
       });
 
       cb(true);
@@ -165,11 +168,6 @@ export function setupLobbyHandlers(io: Server, socket: AuthSocket, user_id: stri
     } catch (error) {
       cb(false, '加入房间失败');
     }
-  }
-  async function getRoomInfo(data: { roomId: string }, cb: CB) {
-    const { roomId } = data;
-    const roomInfo = await roomService.getRoomInfo(roomId);
-    cb(roomInfo);
   }
   async function getUserInfo(cb: CB) {
     if (!isLoggedIn || !socket.user_id) {

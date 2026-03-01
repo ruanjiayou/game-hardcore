@@ -4,11 +4,10 @@
  */
 
 import { v7 } from 'uuid';
-import type { IPlayer, PlayerStats } from '../types/index';
 import { MPlayer, MUser } from '../models';
 import redis from '../utils/redis'
 import config from '../config';
-import { isEmpty, sum, sumBy } from 'lodash';
+import { isEmpty, sumBy } from 'lodash';
 
 export class PlayerService {
 
@@ -51,34 +50,24 @@ export class PlayerService {
   }
 
   /**
-   * 获取玩家
-   */
-  getPlayerById(user_id: string) {
-    return MPlayer.findOne({ user_id }).lean(true);
-  }
-
-  /**
    * 获取玩家信息
    */
-  getPlayerInfo(playerId: string): any {
-    const player = this.getPlayerById(playerId);
-    if (!player) return null;
-
-    return player;
+  async getPlayerById(_id: string) {
+    return MPlayer.findOne({ _id }).lean(true);
   }
 
   /**
    * 更新玩家状态
    */
-  async updatePlayerStatus(playerId: string, status: string) {
-    await MPlayer.updateOne({ _id: playerId }, { $set: { status } })
+  async updatePlayerStatus(player_id: string, status: string) {
+    await MPlayer.updateOne({ _id: player_id }, { $set: { status } })
   }
 
   /**
    * TODO: 更新玩家统计
    */
-  async updatePlayerStats(playerId: string, isWin: boolean, ratingChange: number = 0) {
-    const player = await MPlayer.findById(playerId).lean(true)
+  async updatePlayerStats(player_id: string, isWin: boolean, ratingChange: number = 0) {
+    const player = await MPlayer.findById(player_id).lean(true)
     if (!player) return;
 
     const stats = player.stats;
@@ -104,14 +93,6 @@ export class PlayerService {
   async getLeaderboard(limit: number = 10) {
     const players = await MPlayer.find().limit(limit).sort({ level: -1, rating: -1 }).lean(true)
     return players;
-  }
-
-  /**
-   * 生成随机头像
-   */
-  private _generateAvatar(): string {
-    const avatars = ['👨', '👩', '👦', '👧', '👨‍🦱', '👩‍🦱', '👨‍🦲', '👩‍🦲'];
-    return avatars[Math.floor(Math.random() * avatars.length)];
   }
 
   /**

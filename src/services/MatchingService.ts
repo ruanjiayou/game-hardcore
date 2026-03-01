@@ -3,8 +3,7 @@
  * 负责实时匹配算法
  */
 
-import type { MatchingRequest, Player } from '../types/index';
-import { playerService } from './PlayerService';
+import type { MatchingRequest } from '../types/index';
 
 export class MatchingService {
   private matchingQueues: Map<string, MatchingRequest[]> = new Map(); // gameId -> requests
@@ -13,24 +12,24 @@ export class MatchingService {
    * 添加到匹配队列
    */
   addToQueue(request: MatchingRequest): void {
-    if (!this.matchingQueues.has(request.gameId)) {
-      this.matchingQueues.set(request.gameId, []);
+    if (!this.matchingQueues.has(request.game_id)) {
+      this.matchingQueues.set(request.game_id, []);
     }
 
-    this.matchingQueues.get(request.gameId)!.push(request);
-    console.log(`📍 玩家 ${request.playerId} 加入匹配队列 (游戏: ${request.gameId})`);
+    this.matchingQueues.get(request.game_id)!.push(request);
+    console.log(`📍 玩家 ${request.player_id} 加入匹配队列 (游戏: ${request.game_id})`);
   }
 
   /**
    * 从匹配队列移除
    */
-  removeFromQueue(gameId: string, playerId: string): void {
+  removeFromQueue(gameId: string, player_id: string): void {
     const queue = this.matchingQueues.get(gameId);
     if (queue) {
-      const index = queue.findIndex(r => r.playerId === playerId);
+      const index = queue.findIndex(r => r.player_id === player_id);
       if (index !== -1) {
         queue.splice(index, 1);
-        console.log(`🚫 玩家 ${playerId} 取消匹配 (游戏: ${gameId})`);
+        console.log(`🚫 玩家 ${player_id} 取消匹配 (游戏: ${gameId})`);
       }
     }
   }

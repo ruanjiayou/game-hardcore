@@ -14,6 +14,10 @@ export const MGame = mongoose.model<IGame>('games', new mongoose.Schema({
   genre: String,
   icon: String,
   numbers: { min: Number, max: Number },
+  role_config: {
+    mode: String, // fixed/team/custom
+    roles: [{ name: String, size: Number }]
+  },
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
 }, { collection: 'games', versionKey: false, }));
@@ -27,10 +31,18 @@ export const MRoom = mongoose.model<IRoom>('rooms', new mongoose.Schema({
   players: [{
     _id: String,
     user_name: String,
+    title: String,
+    status: Number,
+    state: String,
     level: Number,
+    score: Number,
     user_id: String,
     avatar: String,
+    role: String,
+    team: String,
   }],
+  seats: [{ _id: false, team: String, size: Number }],
+  state: mongoose.SchemaTypes.Mixed,
   numbers: { min: Number, max: Number },
   isPrivate: Boolean,
   password: String,
@@ -39,6 +51,10 @@ export const MRoom = mongoose.model<IRoom>('rooms', new mongoose.Schema({
   updatedAt: { type: Date, default: Date.now },
   settings: mongoose.SchemaTypes.Mixed,
 }, { collection: 'rooms', versionKey: false, }));
+
+export const MMatch = mongoose.model('matches', new mongoose.Schema({
+
+}, { collection: 'matches', versionKey: false }))
 
 export const MUser = mongoose.model<IUser>('users', new mongoose.Schema({
   _id: String,
@@ -54,6 +70,7 @@ export const MUser = mongoose.model<IUser>('users', new mongoose.Schema({
 export const MPlayer = mongoose.model<IPlayer>('players', new mongoose.Schema({
   _id: String,
   game_id: String,
+  room_id: String,
   user_id: String,
   user_name: String,
   avatar: String,
@@ -63,7 +80,6 @@ export const MPlayer = mongoose.model<IPlayer>('players', new mongoose.Schema({
   exp: { type: Number, default: 0 },
   status: Number,
   online: Boolean,
-  state: String,
   stats: mongoose.SchemaTypes.Mixed,
   createdAt: { type: Date, default: Date.now },
   updatedAt: { type: Date, default: Date.now },
